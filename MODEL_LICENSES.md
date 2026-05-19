@@ -23,6 +23,8 @@ required attribution and notices.
 
 - Do not commit model binaries into git.
 - Prefer GitHub Releases or a dedicated model hosting location for large files.
+- The current app manifest downloads from the project model mirror at
+  `https://github.com/DeepFaceCamLabs/deep-face-cam/releases/tag/models-v1`.
 - Keep a machine-readable manifest with file names, sizes, SHA-256 hashes, and
   upstream URLs.
 - Verify SHA-256 after download before loading a model.

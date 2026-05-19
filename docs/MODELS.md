@@ -14,8 +14,12 @@ signed app bundle:
 ## Manifest
 
 [models/manifest.json](../models/manifest.json) records the model id, filename,
-purpose, expected size, SHA-256 hash, and upstream URL. The app should verify
-downloaded files before loading them.
+purpose, expected size, SHA-256 hash, GitHub release download URL, and upstream
+source page. The app verifies downloaded files before loading them.
+
+The project model mirror is published separately from source releases:
+
+- `https://github.com/DeepFaceCamLabs/deep-face-cam/releases/tag/models-v1`
 
 ## Required Models
 
@@ -31,6 +35,7 @@ downloaded files before loading them.
 
 ## Redistribution
 
-Do not mirror model files until the upstream license and redistribution terms
-are reviewed. When terms are unclear, link to the upstream source and let the app
-download from that source with user confirmation and checksum verification.
+Do not commit model binaries into git. If model binaries are mirrored through
+GitHub Releases, keep the upstream source link and checksum in
+[models/manifest.json](../models/manifest.json), and keep the download flow
+visible to the user.

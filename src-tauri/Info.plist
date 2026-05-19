@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSCameraUsageDescription</key>
+    <string>DeepFaceCam needs camera access to enable live face swap from your webcam.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>DeepFaceCam may capture audio along with webcam video for live preview.</string>
+</dict>
+</plist>

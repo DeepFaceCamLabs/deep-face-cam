@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DeepFaceCam",
+  "version": "0.1.0",
+  "identifier": "net.deeplivecam.deepfacecam",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build && npm run prepare:backend",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "DeepFaceCam",
+        "label": "main",
+        "width": 1200,
+        "height": 820,
+        "minWidth": 980,
+        "minHeight": 700,
+        "decorations": true,
+        "resizable": true,
+        "transparent": false,
+        "fullscreen": false,
+        "center": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "macOSPrivateApi": true
+  },
+  "plugins": {},
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "msi", "nsis"],
+    "icon": ["icons/icon.png"],
+    "externalBin": [],
+    "resources": ["generated/backend", "generated/macos/backend-sidecar"],
+    "category": "Photography",
+    "shortDescription": "Cross-platform face swap desktop app",
+    "longDescription": "Deep Face Cam is a cross-platform desktop app with a React and Tauri interface plus a bundled Python face-swap backend that runs as a local sidecar process.",
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "windows": {
+      "wix": { "language": ["en-US"] }
+    }
+  }
+}

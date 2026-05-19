@@ -1,0 +1,7 @@
+Runtime model cache.
+
+Large model binaries are ignored by git and should not be committed to the
+source repository.
+
+Use ../../models/manifest.json for model filenames, source URLs, sizes, and
+SHA-256 checksums.

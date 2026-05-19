@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Responsible use policy
+    url: https://github.com/DeepFaceCamLabs/deep-face-cam/blob/main/docs/RESPONSIBLE_USE.md
+    about: Read this before requesting safety-sensitive features.
+  - name: Security issue
+    url: https://github.com/DeepFaceCamLabs/deep-face-cam/security/advisories/new
+    about: Report security problems privately.

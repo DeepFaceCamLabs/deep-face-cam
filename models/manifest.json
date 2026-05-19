@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "generated_for": "Deep Face Cam",
+  "notes": [
+    "Model binaries are not committed to git.",
+    "Verify sha256 before loading downloaded files.",
+    "Generated cache files such as *_coreml.onnx are intentionally excluded."
+  ],
+  "models": [
+    {
+      "id": "inswapper_128",
+      "filename": "inswapper_128.onnx",
+      "purpose": "face_swap",
+      "required": true,
+      "size_bytes": 554253681,
+      "sha256": "e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af",
+      "source_url": "https://huggingface.co/hacksider/deep-live-cam/resolve/main/inswapper_128.onnx?download=true",
+      "source_page": "https://huggingface.co/hacksider/deep-live-cam"
+    },
+    {
+      "id": "inswapper_128_fp16",
+      "filename": "inswapper_128_fp16.onnx",
+      "purpose": "face_swap",
+      "required": false,
+      "size_bytes": 277680638,
+      "sha256": "6d51a9278a1f650cffefc18ba53f38bf2769bf4bbff89267822cf72945f8a38b",
+      "source_url": "https://huggingface.co/hacksider/deep-live-cam/resolve/main/inswapper_128_fp16.onnx?download=true",
+      "source_page": "https://huggingface.co/hacksider/deep-live-cam"
+    },
+    {
+      "id": "gfpgan_1024",
+      "filename": "gfpgan-1024.onnx",
+      "purpose": "face_enhancement",
+      "required": false,
+      "size_bytes": 365875079,
+      "sha256": "ee8dd6415e388b3a410689d5d9395a2bf50b5973b588421ebfa57bc266f19e24",
+      "source_url": "https://huggingface.co/hacksider/deep-live-cam/resolve/main/gfpgan-1024.onnx?download=true",
+      "source_page": "https://huggingface.co/hacksider/deep-live-cam/blob/main/gfpgan-1024.onnx"
+    },
+    {
+      "id": "gpen_bfr_256",
+      "filename": "GPEN-BFR-256.onnx",
+      "purpose": "face_enhancement",
+      "required": false,
+      "size_bytes": 75715262,
+      "sha256": "aa5bd3ab238640a378c59e4a560f7a7150627944cf2129e6311ae4720e833271",
+      "source_url": "https://huggingface.co/hacksider/deep-live-cam/resolve/main/GPEN-BFR-256.onnx?download=true",
+      "source_page": "https://huggingface.co/hacksider/deep-live-cam/blob/main/GPEN-BFR-256.onnx"
+    },
+    {
+      "id": "gpen_bfr_512",
+      "filename": "GPEN-BFR-512.onnx",
+      "purpose": "face_enhancement",
+      "required": false,
+      "size_bytes": 284244491,
+      "sha256": "bf80acb8e91ba8852e3f012505be2c3b6cd6b3eed5ec605e3db87863c4e74d4e",
+      "source_url": "https://huggingface.co/hacksider/deep-live-cam/resolve/main/GPEN-BFR-512.onnx?download=true",
+      "source_page": "https://huggingface.co/hacksider/deep-live-cam/blob/main/GPEN-BFR-512.onnx"
+    },
+    {
+      "id": "insightface_buffalo_l",
+      "filename": "buffalo_l.zip",
+      "purpose": "face_detection_landmark_recognition",
+      "required": true,
+      "size_bytes": 288621354,
+      "sha256": "80ffe37d8a5940d59a7384c201a2a38d4741f2f3c51eef46ebb28218a7b0ca2f",
+      "source_url": "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
+      "source_page": "https://github.com/deepinsight/insightface"
+    }
+  ]
+}

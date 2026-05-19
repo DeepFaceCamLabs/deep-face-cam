@@ -88,7 +88,14 @@ export default function App() {
 
   return (
     <div className="relative z-10 flex h-screen flex-col">
-      <TopBar onOpenSettings={() => setSettingsOpen(true)} />
+      <TopBar
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenModels={async () => {
+          const status = await rpc.modelStatus(false);
+          setModelStatus(status);
+          setModelSetupOpen(true);
+        }}
+      />
 
       <main className="min-h-0 flex-1 overflow-y-auto p-3">
         <div className="mx-auto flex h-full max-w-[1180px] flex-col gap-3">
@@ -123,7 +130,6 @@ export default function App() {
         status={modelStatus}
         onStatusChange={(status) => {
           setModelStatus(status);
-          setModelSetupOpen(status.missing_required.length > 0);
         }}
         onClose={() => setModelSetupOpen(false)}
       />

@@ -1,13 +1,14 @@
-import { Settings, Github } from "lucide-react";
+import { DownloadCloud, Github, Settings } from "lucide-react";
 import { useUi } from "@/lib/store";
 import { useI18n } from "@/i18n";
 import { LanguageSelect } from "./LanguageSelect";
 
 interface Props {
   onOpenSettings: () => void;
+  onOpenModels: () => void;
 }
 
-export function TopBar({ onOpenSettings }: Props) {
+export function TopBar({ onOpenSettings, onOpenModels }: Props) {
   const state = useUi((s) => s.state);
   const { t } = useI18n();
   return (
@@ -29,6 +30,14 @@ export function TopBar({ onOpenSettings }: Props) {
       <div className="flex items-center gap-1">
         <LanguageSelect compact />
         <button
+          onClick={onOpenModels}
+          className="rounded-md p-1.5 text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100"
+          aria-label={t("top.models")}
+          title={t("top.models")}
+        >
+          <DownloadCloud size={15} />
+        </button>
+        <button
           onClick={onOpenSettings}
           className="rounded-md p-1.5 text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100"
           aria-label={t("top.settings")}
@@ -36,7 +45,7 @@ export function TopBar({ onOpenSettings }: Props) {
           <Settings size={15} />
         </button>
         <a
-          href="https://github.com/hacksider/Deep-Live-Cam"
+          href="https://github.com/DeepFaceCamLabs/deep-face-cam"
           target="_blank"
           rel="noreferrer"
           className="rounded-md p-1.5 text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100"

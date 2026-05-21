@@ -13,9 +13,19 @@ permissions:
 
 jobs:
   macos-dmg-unsigned:
-    name: Unsigned macOS DMG
-    runs-on: macos-14
+    name: Unsigned macOS DMG (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Apple Silicon
+            runner: macos-15
+            artifact_suffix: apple-silicon-arm64
+          - name: Intel
+            runner: macos-15-intel
+            artifact_suffix: intel-x64
     steps:
       - uses: actions/checkout@v6
 
@@ -43,7 +53,9 @@ jobs:
           sw_vers
           uname -m
           node --version
+          node -p "process.arch"
           python3 --version
+          python3 -c "import platform; print(platform.machine())"
           rustc --version
 
       - run: npm ci
@@ -65,7 +77,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: deepfacecam-macos-unsigned-${{ runner.arch }}
+          name: deepfacecam-macos-unsigned-${{ matrix.artifact_suffix }}
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/SHA256SUMS.txt

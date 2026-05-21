@@ -96,21 +96,33 @@ Finder AppleScript decoration because that step can time out in automation.
 
 Current macOS notes:
 
-- The GitHub workflow uses the `macos-14` arm64 runner for an Apple Silicon build.
+- The GitHub workflow builds two separate DMGs:
+  - Apple Silicon on the `macos-15` arm64 runner.
+  - Intel on the `macos-15-intel` x64 runner.
 - Local sidecar builds use the current Mac architecture.
 - Python, backend dependencies, `ffmpeg`, and `ffprobe` are bundled in the sidecar.
 - Models stay in the app data directory and are downloaded only after the first-run prompt.
 - Developer ID signing and notarization still need to be wired before public distribution.
 
+macOS acceleration notes:
+
+- Apple Silicon builds use ONNX Runtime's CoreML provider, not PyTorch MPS.
+- CoreML is configured to let the system use CPU, GPU, and Neural Engine where
+  supported.
+- Intel builds use the CPU provider by default unless a compatible accelerated
+  provider is added later.
+- The backend chooses the best available provider at startup in this order:
+  CUDA, ROCm, CoreML, DirectML, CPU.
+
 ## GitHub macOS Packaging
 
-Run the manual `Package macOS` workflow from GitHub Actions. It creates a clean
-Python 3.11 packaging environment, builds the PyInstaller backend sidecar,
-bundles the Tauri `.app`, creates an unsigned DMG, writes `SHA256SUMS.txt`, and
-uploads both files as a private workflow artifact.
+Run the manual `Package macOS` workflow from GitHub Actions. It creates clean
+Python 3.11 packaging environments on Apple Silicon and Intel runners, builds
+the PyInstaller backend sidecar for each architecture, bundles the Tauri `.app`,
+creates unsigned DMGs, writes `SHA256SUMS.txt`, and uploads both artifacts.
 
-The artifact is for internal testing until Developer ID signing and notarization
-are configured. It is not uploaded to a public GitHub Release.
+The artifacts are for internal testing until Developer ID signing and
+notarization are configured. They are not uploaded to a public GitHub Release.
 
 ## Current Bundle Status
 

@@ -1,11 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import platform
 from pathlib import Path
 
 project_root = Path(SPECPATH).parents[1]
 backend_root = project_root / "backend"
 shims_root = project_root / "packaging" / "pyinstaller" / "shims"
 runtime_bin = project_root / "packaging" / "pyinstaller" / "runtime" / "macos" / "bin"
+target_arch = "arm64" if platform.machine() == "arm64" else None
 
 datas = [
     (str(project_root / "models" / "manifest.json"), "models"),
@@ -83,7 +85,7 @@ exe = EXE(
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch="arm64",
+    target_arch=target_arch,
     codesign_identity=None,
     entitlements_file=None,
 )

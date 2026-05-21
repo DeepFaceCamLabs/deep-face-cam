@@ -57,6 +57,12 @@ with progress events.
 
 ## macOS Sidecar
 
+Prepare a clean packaging Python environment:
+
+```bash
+npm run packaging:python:macos
+```
+
 Build the standalone macOS backend first:
 
 ```bash
@@ -90,10 +96,21 @@ Finder AppleScript decoration because that step can time out in automation.
 
 Current macOS notes:
 
-- The sidecar is built for Apple Silicon (`arm64`) on macOS.
+- The GitHub workflow uses the `macos-14` arm64 runner for an Apple Silicon build.
+- Local sidecar builds use the current Mac architecture.
 - Python, backend dependencies, `ffmpeg`, and `ffprobe` are bundled in the sidecar.
 - Models stay in the app data directory and are downloaded only after the first-run prompt.
 - Developer ID signing and notarization still need to be wired before public distribution.
+
+## GitHub macOS Packaging
+
+Run the manual `Package macOS` workflow from GitHub Actions. It creates a clean
+Python 3.11 packaging environment, builds the PyInstaller backend sidecar,
+bundles the Tauri `.app`, creates an unsigned DMG, writes `SHA256SUMS.txt`, and
+uploads both files as a private workflow artifact.
+
+The artifact is for internal testing until Developer ID signing and notarization
+are configured. It is not uploaded to a public GitHub Release.
 
 ## Current Bundle Status
 

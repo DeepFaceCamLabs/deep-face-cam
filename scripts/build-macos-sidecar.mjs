@@ -10,8 +10,12 @@ import ffprobe from "@ffprobe-installer/ffprobe";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
 const workspaceRoot = resolve(projectRoot, "..");
-const defaultPython = resolve(workspaceRoot, "Deep-Live-Cam", ".venv", "bin", "python");
-const python = process.env.DEEPFACECAM_PACKAGING_PYTHON || defaultPython;
+const pythonCandidates = [
+  process.env.DEEPFACECAM_PACKAGING_PYTHON,
+  resolve(projectRoot, "build", "packaging-venv", "macos", "bin", "python"),
+  resolve(workspaceRoot, "Deep-Live-Cam", ".venv", "bin", "python"),
+  "python3",
+].filter(Boolean);
 const spec = resolve(projectRoot, "packaging", "pyinstaller", "deepfacecam_backend_macos.spec");
 const workpath = resolve(projectRoot, "build", "pyinstaller", "macos");
 const distpath = resolve(projectRoot, "build", "sidecar", "macos");
@@ -49,6 +53,21 @@ async function copyExecutable(source, targetName) {
   await chmod(target, 0o755);
 }
 
+async function resolvePython() {
+  for (const candidate of pythonCandidates) {
+    if (candidate === "python3" || (await exists(candidate))) {
+      return candidate;
+    }
+  }
+  throw new Error(
+    [
+      "Packaging Python not found.",
+      "Run `npm run packaging:python:macos` or set DEEPFACECAM_PACKAGING_PYTHON.",
+      `Checked: ${pythonCandidates.join(", ")}`,
+    ].join(" ")
+  );
+}
+
 async function prepareRuntimeTools() {
   await rm(runtimeBin, { recursive: true, force: true });
   await mkdir(runtimeBin, { recursive: true });
@@ -60,11 +79,7 @@ async function main() {
   if (process.platform !== "darwin") {
     throw new Error("macOS sidecar can only be built on macOS.");
   }
-  if (!(await exists(python))) {
-    throw new Error(
-      `Packaging Python not found: ${python}. Set DEEPFACECAM_PACKAGING_PYTHON.`
-    );
-  }
+  const python = await resolvePython();
 
   await prepareRuntimeTools();
 

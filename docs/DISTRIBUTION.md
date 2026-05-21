@@ -54,6 +54,11 @@ Generate checksums after building installers:
 npm run release:checksums
 ```
 
+For an internal macOS test build, run the manual GitHub Actions workflow named
+`Package macOS`. It uploads an unsigned Apple Silicon DMG plus
+`SHA256SUMS.txt` as a workflow artifact. Treat that artifact as a test build
+until Developer ID signing and notarization are enabled.
+
 The public website should link the source repository separately from the
 supporter download page.
 

@@ -1,0 +1,73 @@
+name: Package macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      retention-days:
+        description: Artifact retention days
+        required: false
+        default: "14"
+
+permissions:
+  contents: read
+
+jobs:
+  macos-dmg-unsigned:
+    name: Unsigned macOS DMG
+    runs-on: macos-14
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust toolchain
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            . "$HOME/.cargo/env"
+          fi
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Runner details
+        run: |
+          sw_vers
+          uname -m
+          node --version
+          python3 --version
+          rustc --version
+
+      - run: npm ci
+
+      - name: Prepare packaging Python
+        run: npm run packaging:python:macos
+
+      - name: Build unsigned macOS DMG
+        env:
+          CI: "true"
+        run: npm run tauri:build:macos
+
+      - name: Generate checksums
+        run: npm run release:checksums
+
+      - name: List release artifacts
+        run: |
+          find src-tauri/target/release/bundle -maxdepth 4 -type f \( -name '*.dmg' -o -name 'SHA256SUMS.txt' \) -print
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deepfacecam-macos-unsigned-${{ runner.arch }}
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: ${{ fromJSON(inputs['retention-days']) }}

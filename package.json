@@ -10,6 +10,7 @@
     "build": "tsc --noEmit && vite build",
     "prepare:backend": "node scripts/prepare-backend-resource.mjs",
     "models:download": "python3 scripts/download_models.py --required-only",
+    "packaging:python:macos": "node scripts/setup-packaging-python.mjs macos",
     "sidecar:macos": "node scripts/build-macos-sidecar.mjs",
     "dmg:macos": "node scripts/build-macos-dmg.mjs",
     "preview": "vite preview --port 4173",

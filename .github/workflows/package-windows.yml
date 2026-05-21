@@ -73,6 +73,11 @@ jobs:
           DEEPFACECAM_WINDOWS_VARIANT: ${{ matrix.variant }}
         run: npm run tauri:build:windows
 
+      - name: Rename installer artifacts
+        env:
+          DEEPFACECAM_WINDOWS_VARIANT: ${{ matrix.variant }}
+        run: npm run release:rename-windows
+
       - name: Generate checksums
         run: npm run release:checksums
 

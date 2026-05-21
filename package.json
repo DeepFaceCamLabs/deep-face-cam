@@ -21,6 +21,7 @@
     "backend": "node scripts/run-backend.mjs",
     "open-source:check": "node scripts/check-open-source-ready.mjs",
     "release:checksums": "node scripts/create-checksums.mjs",
+    "release:rename-windows": "node scripts/rename-windows-artifacts.mjs",
     "dev:all": "node scripts/dev-all.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

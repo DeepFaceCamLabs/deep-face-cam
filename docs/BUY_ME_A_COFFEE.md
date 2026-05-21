@@ -46,13 +46,16 @@ checksums are linked in the release notes.
 Short description:
 
 ```text
-Windows x64 convenience installer for Deep Face Cam, with bundled backend
-runtime and ffmpeg tools. Model files download after an explicit in-app prompt.
+Windows x64 convenience installers for Deep Face Cam, with bundled backend
+runtime and ffmpeg tools. Choose CPU, DirectML, or NVIDIA CUDA. Model files
+download after an explicit in-app prompt.
 ```
 
 Included files:
 
-- Windows installer
+- Windows CPU installer
+- Windows DirectML installer
+- Windows NVIDIA CUDA installer
 - `SHA256SUMS.txt`
 - link to source tag
 - release notes
@@ -76,7 +79,10 @@ https://github.com/DeepFaceCamLabs/deep-face-cam/releases/tag/vX.Y.Z
 
 Downloads:
 - macOS Apple Silicon: DeepFaceCam_X.Y.Z_aarch64.dmg
-- Windows x64: planned / included
+- macOS Intel: DeepFaceCam_X.Y.Z_x64.dmg
+- Windows CPU x64: planned / included
+- Windows DirectML x64: planned / included
+- Windows NVIDIA CUDA x64: planned / included
 
 Checksums:
 PASTE_SHA256SUMS

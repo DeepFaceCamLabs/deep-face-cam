@@ -1,0 +1,17 @@
+# Minimal dependency set for the bundled Windows DirectML backend sidecar.
+#
+# DirectML is the broad Windows GPU path across NVIDIA, AMD, and Intel GPUs.
+numpy>=1.23.5,<2
+typing-extensions>=4.8.0
+opencv-python==4.10.0.84
+cv2_enumerate_cameras==1.1.15
+onnx==1.18.0
+insightface==0.7.3
+psutil==5.9.8
+pillow==12.1.1
+tqdm>=4.65.0
+onnxruntime-directml>=1.23,<1.24
+protobuf==4.25.1
+pygrabber; sys_platform == 'win32'
+aiohttp>=3.9
+PyInstaller>=6.11,<7

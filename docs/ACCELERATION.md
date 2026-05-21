@@ -30,6 +30,13 @@ Windows packaging should remain split by runtime:
 - NVIDIA CUDA: best NVIDIA performance, but sensitive to driver, CUDA, and
   cuDNN compatibility.
 
+The `Package Windows` workflow builds all three x64 variants from separate
+Python dependency sets:
+
+- `requirements-windows-cpu.txt`
+- `requirements-windows-directml.txt`
+- `requirements-windows-cuda.txt`
+
 The GitHub-hosted Windows runner can verify packaging, but it cannot validate
 CUDA performance because it does not provide a physical NVIDIA GPU. CUDA builds
 need self-hosted Windows test machines for RTX 40-series and RTX 50-series.

@@ -42,7 +42,9 @@ For each public release, prepare:
 
 - macOS Apple Silicon `.dmg`
 - macOS Intel `.dmg`
-- Windows x64 installer
+- Windows x64 CPU installer
+- Windows x64 DirectML installer
+- Windows x64 NVIDIA CUDA installer
 - SHA-256 checksums
 - changelog
 - source tag URL
@@ -59,6 +61,11 @@ For an internal macOS test build, run the manual GitHub Actions workflow named
 `Package macOS`. It uploads unsigned Apple Silicon and Intel DMGs plus
 `SHA256SUMS.txt` files as workflow artifacts. Treat those artifacts as test
 builds until Developer ID signing and notarization are enabled.
+
+For an internal Windows test build, run the manual GitHub Actions workflow named
+`Package Windows`. It uploads unsigned CPU, DirectML, and NVIDIA CUDA installer
+artifacts plus `SHA256SUMS.txt` files. Treat CUDA artifacts as packaging checks
+until they are validated on physical RTX 40/50 Windows machines.
 
 The public website should link the source repository separately from the
 supporter download page.

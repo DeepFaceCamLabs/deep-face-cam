@@ -37,12 +37,14 @@ installer release.
 
 ## Windows Build
 
-- [ ] Build Windows sidecar.
+- [ ] Build Windows CPU sidecar and installer.
+- [ ] Build Windows DirectML sidecar and installer.
+- [ ] Build Windows NVIDIA CUDA sidecar and installer.
 - [ ] Bundle Python runtime and ffmpeg/ffprobe.
-- [ ] Build installer.
 - [ ] Code sign installer and binaries.
 - [ ] Verify image swap on a clean Windows machine.
 - [ ] Verify video swap on a clean Windows machine.
+- [ ] Verify CUDA variant on physical RTX 40/50 test machines.
 - [ ] Run `npm run release:checksums`.
 
 ## Website and Supporter Download

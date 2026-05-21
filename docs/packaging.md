@@ -124,12 +124,58 @@ creates unsigned DMGs, writes `SHA256SUMS.txt`, and uploads both artifacts.
 The artifacts are for internal testing until Developer ID signing and
 notarization are configured. They are not uploaded to a public GitHub Release.
 
+## Windows Sidecar
+
+Windows builds are split by runtime variant:
+
+```bash
+npm run packaging:python:windows:cpu
+npm run packaging:python:windows:directml
+npm run packaging:python:windows:cuda
+```
+
+Build the active sidecar variant with:
+
+```bash
+DEEPFACECAM_WINDOWS_VARIANT=cpu npm run sidecar:windows
+DEEPFACECAM_WINDOWS_VARIANT=directml npm run sidecar:windows
+DEEPFACECAM_WINDOWS_VARIANT=cuda npm run sidecar:windows
+```
+
+Each variant writes the bundled backend to:
+
+```text
+src-tauri/generated/windows/backend-sidecar/deepfacecam-backend
+```
+
+Then build the Windows installers:
+
+```bash
+DEEPFACECAM_WINDOWS_VARIANT=cpu npm run tauri:build:windows
+```
+
+The sidecar includes Python, backend dependencies, `ffmpeg.exe`, and
+`ffprobe.exe`, but not model binaries.
+
+## GitHub Windows Packaging
+
+Run the manual `Package Windows` workflow from GitHub Actions. It builds three
+unsigned x64 installer artifacts:
+
+- CPU: maximum compatibility.
+- DirectML: broad Windows GPU support.
+- NVIDIA CUDA: NVIDIA-specific runtime package.
+
+GitHub-hosted Windows runners can verify packaging only. CUDA performance and
+RTX 40/50 compatibility need self-hosted Windows GPU machines.
+
 ## Current Bundle Status
 
 `npm run tauri:build -- --bundles app` builds a macOS `.app` with the clean
 backend resource, the macOS backend sidecar, and no model binaries.
 
-The next packaging step is the Windows x64 sidecar build.
+The GitHub macOS workflow now builds Apple Silicon and Intel DMGs. The GitHub
+Windows workflow prepares CPU, DirectML, and NVIDIA CUDA installer variants.
 
 ## Installer-Time Download
 

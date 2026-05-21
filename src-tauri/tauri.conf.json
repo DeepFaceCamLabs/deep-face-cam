@@ -38,7 +38,11 @@
     "targets": ["app", "dmg", "msi", "nsis"],
     "icon": ["icons/icon.png"],
     "externalBin": [],
-    "resources": ["generated/backend", "generated/macos/backend-sidecar"],
+    "resources": [
+      "generated/backend",
+      "generated/macos/backend-sidecar",
+      "generated/windows/backend-sidecar"
+    ],
     "category": "Photography",
     "shortDescription": "Cross-platform face swap desktop app",
     "longDescription": "Deep Face Cam is a cross-platform desktop app with a React and Tauri interface plus a bundled Python face-swap backend that runs as a local sidecar process.",

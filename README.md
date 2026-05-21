@@ -143,6 +143,13 @@ Build the macOS sidecar, `.app`, and `.dmg`:
 npm run tauri:build:macos
 ```
 
+Build a Windows installer variant on Windows:
+
+```powershell
+$env:DEEPFACECAM_WINDOWS_VARIANT = "cpu"      # cpu, directml, or cuda
+npm run tauri:build:windows
+```
+
 ## Backend Only
 
 Start the Python sidecar directly:
@@ -182,8 +189,10 @@ Expected result:
 ## Packaging Notes
 
 Production builds should assume the end user has no Python, Node, Rust, ffmpeg,
-ffprobe, or model files installed. The macOS packaging path builds a PyInstaller
-Python sidecar and bundles `ffmpeg`/`ffprobe` into the app resources.
+ffprobe, or model files installed. The packaging path builds a PyInstaller
+Python sidecar and bundles `ffmpeg`/`ffprobe` into the app resources. macOS is
+split into Apple Silicon and Intel DMGs; Windows is split into CPU, DirectML,
+and NVIDIA CUDA x64 installers.
 
 For production model handling, prefer downloading models into the app data
 directory:

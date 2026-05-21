@@ -68,6 +68,9 @@ async function main() {
   await mkdir(join(projectRoot, "src-tauri", "generated", "macos", "backend-sidecar"), {
     recursive: true,
   });
+  await mkdir(join(projectRoot, "src-tauri", "generated", "windows", "backend-sidecar"), {
+    recursive: true,
+  });
 
   const outManifest = join(outRoot, "models", "manifest.json");
   await mkdir(dirname(outManifest), { recursive: true });

@@ -1,0 +1,94 @@
+name: Package Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      retention-days:
+        description: Artifact retention days
+        required: false
+        default: "14"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installer-unsigned:
+    name: Unsigned Windows installer (${{ matrix.name }})
+    runs-on: windows-2025
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: CPU
+            variant: cpu
+            artifact_suffix: cpu-x64
+          - name: DirectML
+            variant: directml
+            artifact_suffix: directml-x64
+          - name: NVIDIA CUDA
+            variant: cuda
+            artifact_suffix: nvidia-cuda-x64
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust toolchain
+        shell: pwsh
+        run: |
+          if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
+            Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe
+            .\rustup-init.exe -y --profile minimal
+            "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Runner details
+        shell: pwsh
+        run: |
+          systeminfo | Select-String "OS Name","OS Version","System Type"
+          node --version
+          node -p "process.arch"
+          python --version
+          python -c "import platform; print(platform.machine())"
+          rustc --version
+
+      - run: npm ci
+
+      - name: Prepare packaging Python
+        run: npm run packaging:python:windows:${{ matrix.variant }}
+
+      - name: Build unsigned Windows installer
+        env:
+          CI: "true"
+          DEEPFACECAM_WINDOWS_VARIANT: ${{ matrix.variant }}
+        run: npm run tauri:build:windows
+
+      - name: Generate checksums
+        run: npm run release:checksums
+
+      - name: List release artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem src-tauri/target/release/bundle -Recurse -File |
+            Where-Object { $_.Name -match '\.(msi|exe)$' -or $_.Name -eq 'SHA256SUMS.txt' } |
+            ForEach-Object { $_.FullName }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deepfacecam-windows-unsigned-${{ matrix.artifact_suffix }}
+          path: |
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: ${{ fromJSON(inputs['retention-days']) }}

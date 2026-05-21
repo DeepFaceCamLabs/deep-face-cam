@@ -18,6 +18,24 @@ const platformConfig = {
     venv: resolve(projectRoot, "build", "packaging-venv", "macos"),
     pythonRel: ["bin", "python"],
   },
+  "windows-cpu": {
+    platform: "win32",
+    requirements: resolve(projectRoot, "packaging", "pyinstaller", "requirements-windows-cpu.txt"),
+    venv: resolve(projectRoot, "build", "packaging-venv", "windows-cpu"),
+    pythonRel: ["Scripts", "python.exe"],
+  },
+  "windows-directml": {
+    platform: "win32",
+    requirements: resolve(projectRoot, "packaging", "pyinstaller", "requirements-windows-directml.txt"),
+    venv: resolve(projectRoot, "build", "packaging-venv", "windows-directml"),
+    pythonRel: ["Scripts", "python.exe"],
+  },
+  "windows-cuda": {
+    platform: "win32",
+    requirements: resolve(projectRoot, "packaging", "pyinstaller", "requirements-windows-cuda.txt"),
+    venv: resolve(projectRoot, "build", "packaging-venv", "windows-cuda"),
+    pythonRel: ["Scripts", "python.exe"],
+  },
 };
 
 function run(cmd, args, options = {}) {

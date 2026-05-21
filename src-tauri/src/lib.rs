@@ -122,18 +122,29 @@ fn find_bundled_backend(app: &AppHandle) -> Option<PathBuf> {
     }
 
     let resource_dir = app.path().resource_dir().ok()?;
+    let executable_name = if cfg!(windows) {
+        "deepfacecam-backend.exe"
+    } else {
+        "deepfacecam-backend"
+    };
     for candidate in [
+        resource_dir
+            .join("generated")
+            .join("windows")
+            .join("backend-sidecar")
+            .join("deepfacecam-backend")
+            .join(executable_name),
         resource_dir
             .join("generated")
             .join("macos")
             .join("backend-sidecar")
             .join("deepfacecam-backend")
-            .join("deepfacecam-backend"),
+            .join(executable_name),
         resource_dir
             .join("backend-sidecar")
             .join("deepfacecam-backend")
-            .join("deepfacecam-backend"),
-        resource_dir.join("deepfacecam-backend"),
+            .join(executable_name),
+        resource_dir.join(executable_name),
     ] {
         if is_file(&candidate) {
             return Some(candidate);

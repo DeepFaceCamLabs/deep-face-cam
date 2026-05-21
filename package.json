@@ -11,7 +11,11 @@
     "prepare:backend": "node scripts/prepare-backend-resource.mjs",
     "models:download": "python3 scripts/download_models.py --required-only",
     "packaging:python:macos": "node scripts/setup-packaging-python.mjs macos",
+    "packaging:python:windows:cpu": "node scripts/setup-packaging-python.mjs windows-cpu",
+    "packaging:python:windows:directml": "node scripts/setup-packaging-python.mjs windows-directml",
+    "packaging:python:windows:cuda": "node scripts/setup-packaging-python.mjs windows-cuda",
     "sidecar:macos": "node scripts/build-macos-sidecar.mjs",
+    "sidecar:windows": "node scripts/build-windows-sidecar.mjs",
     "dmg:macos": "node scripts/build-macos-dmg.mjs",
     "preview": "vite preview --port 4173",
     "backend": "node scripts/run-backend.mjs",
@@ -21,7 +25,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "tauri:build:macos": "npm run sidecar:macos && tauri build --bundles app && npm run dmg:macos"
+    "tauri:build:macos": "npm run sidecar:macos && npm run prepare:backend && tauri build --bundles app && npm run dmg:macos",
+    "tauri:build:windows": "npm run sidecar:windows && npm run prepare:backend && tauri build --bundles nsis,msi"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.2",

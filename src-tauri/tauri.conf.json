@@ -39,9 +39,9 @@
     "icon": ["icons/icon.png", "icons/icon.ico"],
     "externalBin": [],
     "resources": [
-      "generated/backend",
-      "generated/macos/backend-sidecar",
-      "generated/windows/backend-sidecar"
+      "generated/backend/**/*",
+      "generated/macos/backend-sidecar/**/*",
+      "generated/windows/backend-sidecar/**/*"
     ],
     "category": "Photography",
     "shortDescription": "Cross-platform face swap desktop app",

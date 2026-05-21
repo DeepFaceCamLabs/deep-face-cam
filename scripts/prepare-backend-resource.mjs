@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { cp, mkdir, readdir, rm, stat } from "node:fs/promises";
+import { cp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -65,12 +65,13 @@ async function main() {
 
   await rm(outRoot, { recursive: true, force: true });
   await copyClean(backendRoot, outRoot);
-  await mkdir(join(projectRoot, "src-tauri", "generated", "macos", "backend-sidecar"), {
-    recursive: true,
-  });
-  await mkdir(join(projectRoot, "src-tauri", "generated", "windows", "backend-sidecar"), {
-    recursive: true,
-  });
+  for (const sidecarDir of [
+    join(projectRoot, "src-tauri", "generated", "macos", "backend-sidecar"),
+    join(projectRoot, "src-tauri", "generated", "windows", "backend-sidecar"),
+  ]) {
+    await mkdir(sidecarDir, { recursive: true });
+    await writeFile(join(sidecarDir, ".keep"), "", { flag: "a" });
+  }
 
   const outManifest = join(outRoot, "models", "manifest.json");
   await mkdir(dirname(outManifest), { recursive: true });

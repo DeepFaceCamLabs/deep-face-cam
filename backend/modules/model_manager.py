@@ -13,6 +13,7 @@ import os
 import ssl
 import shutil
 import tempfile
+from urllib.parse import quote
 import urllib.request
 import zipfile
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from modules.paths import MODELS_DIR, ROOT_DIR
 ProgressCallback = Callable[[Dict[str, Any]], None]
 
 INSIGHTFACE_BUFFALO_ID = "insightface_buffalo_l"
+MODEL_BASE_URL_ENV = "DEEPFACECAM_MODEL_BASE_URL"
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,13 @@ def model_path(spec_or_id: ModelSpec | str) -> str:
     if spec is None:
         raise KeyError(f"unknown model: {spec_or_id}")
     return os.path.join(MODELS_DIR, spec.filename)
+
+
+def download_url(spec: ModelSpec) -> Optional[str]:
+    base_url = os.environ.get(MODEL_BASE_URL_ENV, "").strip().rstrip("/")
+    if base_url:
+        return f"{base_url}/{quote(spec.filename)}"
+    return spec.source_url
 
 
 def insightface_root() -> str:
@@ -190,7 +199,7 @@ def status(verify: bool = False) -> Dict[str, Any]:
                 "purpose": spec.purpose,
                 "required": spec.required,
                 "present": present,
-                "downloadable": bool(spec.source_url),
+                "downloadable": bool(download_url(spec)),
                 "size_bytes": spec.size_bytes,
                 "path": path,
                 "source_page": spec.source_page,
@@ -215,7 +224,8 @@ def download_model(model_id: str, callback: Optional[ProgressCallback] = None) -
         return {"ok": False, "error": f"unknown model: {model_id}"}
     if is_present(spec, verify=False):
         return {"ok": True, "id": spec.id, "path": model_path(spec), "skipped": True}
-    if not spec.source_url:
+    source_url = download_url(spec)
+    if not source_url:
         return {"ok": False, "id": spec.id, "error": "model has no download URL"}
 
     os.makedirs(MODELS_DIR, exist_ok=True)
@@ -229,7 +239,7 @@ def download_model(model_id: str, callback: Optional[ProgressCallback] = None) -
         _emit(callback, {"event": "model_download_start", "id": spec.id})
         context = ssl.create_default_context()
         request = urllib.request.Request(
-            spec.source_url,
+            source_url,
             headers={"User-Agent": "DeepFaceCam/0.1"},
         )
         with urllib.request.urlopen(request, context=context, timeout=60) as response:

@@ -4,7 +4,7 @@ This repository does not commit model weights. Model files are downloaded or
 placed in the local runtime model cache and are governed by their own upstream
 licenses and terms.
 
-Before publishing model files through GitHub Releases or any other mirror,
+Before publishing model files through Cloudflare R2 or any other mirror,
 verify that each upstream license permits redistribution and preserve the
 required attribution and notices.
 
@@ -22,9 +22,9 @@ required attribution and notices.
 ## Distribution Guidance
 
 - Do not commit model binaries into git.
-- Prefer GitHub Releases or a dedicated model hosting location for large files.
+- Prefer a dedicated model hosting location for large files.
 - The current app manifest downloads from the project model mirror at
-  `https://github.com/DeepFaceCamLabs/deep-face-cam/releases/tag/models-v1`.
+  `https://pub-8c0ddfa5c0454d40822bc9944fe6f303.r2.dev/deep-face-cam/models/v1/`.
 - Keep a machine-readable manifest with file names, sizes, SHA-256 hashes, and
   upstream URLs.
 - Verify SHA-256 after download before loading a model.

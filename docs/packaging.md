@@ -42,6 +42,10 @@ For development or CI, run:
 npm run models:download
 ```
 
+By default, model downloads use the Cloudflare R2 URLs in `models/manifest.json`.
+Set `DEEPFACECAM_MODEL_BASE_URL` to point packaged builds at another compatible
+mirror without editing the manifest.
+
 To download into a specific cache:
 
 ```bash

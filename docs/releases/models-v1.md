@@ -3,6 +3,10 @@
 This release mirrors the runtime model files referenced by
 `models/manifest.json`.
 
+Public mirror:
+
+- `https://pub-8c0ddfa5c0454d40822bc9944fe6f303.r2.dev/deep-face-cam/models/v1/`
+
 ## Assets
 
 - `inswapper_128.onnx`

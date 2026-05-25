@@ -17,7 +17,7 @@ export function TopBar({ onOpenSettings, onOpenModels }: Props) {
       className="flex h-11 select-none items-center justify-between border-b border-white/5 bg-bg-soft/40 pl-[88px] pr-3 backdrop-blur"
     >
       <div data-tauri-drag-region className="flex items-center gap-2.5">
-        <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-[#6ee7b7] to-[#7dd3fc]" />
+        <img src="/favicon.png" alt="" className="h-6 w-6 rounded-md" />
         <div data-tauri-drag-region className="flex items-baseline gap-2">
           <span className="text-[13px] font-semibold tracking-tight">
             DeepFaceCam

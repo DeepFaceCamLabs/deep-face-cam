@@ -10,6 +10,7 @@ src-tauri/generated/
 .DS_Store
 .env
 .env.local
+.wrangler/
 backend/.venv/
 backend/__pycache__/
 backend/**/__pycache__/

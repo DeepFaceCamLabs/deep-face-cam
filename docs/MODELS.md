@@ -14,12 +14,16 @@ signed app bundle:
 ## Manifest
 
 [models/manifest.json](../models/manifest.json) records the model id, filename,
-purpose, expected size, SHA-256 hash, GitHub release download URL, and upstream
+purpose, expected size, SHA-256 hash, R2 mirror download URL, and upstream
 source page. The app verifies downloaded files before loading them.
 
-The project model mirror is published separately from source releases:
+The project model mirror is published separately from source releases on
+Cloudflare R2:
 
-- `https://github.com/DeepFaceCamLabs/deep-face-cam/releases/tag/models-v1`
+- `https://pub-8c0ddfa5c0454d40822bc9944fe6f303.r2.dev/deep-face-cam/models/v1/`
+
+The downloader also supports overriding the model mirror with
+`DEEPFACECAM_MODEL_BASE_URL`.
 
 ## Required Models
 
@@ -36,6 +40,6 @@ The project model mirror is published separately from source releases:
 ## Redistribution
 
 Do not commit model binaries into git. If model binaries are mirrored through
-GitHub Releases, keep the upstream source link and checksum in
+R2 or another object storage provider, keep the upstream source link and checksum in
 [models/manifest.json](../models/manifest.json), and keep the download flow
 visible to the user.

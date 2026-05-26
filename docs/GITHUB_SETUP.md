@@ -81,6 +81,32 @@ Likely future secrets:
 - Buy Me a Coffee webhook secret, if you later automate downloads
 - CDN storage credentials, if installer files are served outside Buy Me a Coffee
 
+## Local GitHub CLI Profile
+
+Use the dedicated GitHub CLI config directory for this project:
+
+```bash
+export GH_CONFIG_DIR=/Users/zeroone/.config/gh-deepfacecam
+```
+
+This profile is logged in as `ITTutorial` and has admin access to the
+`DeepFaceCamLabs` repositories. The token is managed by GitHub CLI and the local
+keyring; do not copy tokens into this repository.
+
+Common checks:
+
+```bash
+GH_CONFIG_DIR=/Users/zeroone/.config/gh-deepfacecam gh auth status -h github.com
+GH_CONFIG_DIR=/Users/zeroone/.config/gh-deepfacecam gh repo view DeepFaceCamLabs/deep-face-cam --json viewerPermission
+```
+
+Use this profile when pushing release changes or triggering packaging workflows:
+
+```bash
+GH_CONFIG_DIR=/Users/zeroone/.config/gh-deepfacecam gh workflow run package-macos.yml --repo DeepFaceCamLabs/deep-face-cam --ref main -f retention-days=14
+GH_CONFIG_DIR=/Users/zeroone/.config/gh-deepfacecam gh workflow run package-windows.yml --repo DeepFaceCamLabs/deep-face-cam --ref main -f retention-days=14
+```
+
 ## Release Flow
 
 1. Update version in `package.json` and `src-tauri/tauri.conf.json`.

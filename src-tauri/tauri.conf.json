@@ -50,7 +50,12 @@
       "minimumSystemVersion": "11.0"
     },
     "windows": {
-      "wix": { "language": ["en-US"] }
+      "wix": { "language": ["en-US"] },
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "installMode": "currentUser"
+      }
     }
   }
 }

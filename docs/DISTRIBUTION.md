@@ -62,6 +62,11 @@ For an internal macOS test build, run the manual GitHub Actions workflow named
 `SHA256SUMS.txt` files as workflow artifacts. Treat those artifacts as test
 builds until Developer ID signing and notarization are enabled.
 
+For a production macOS build, run the same workflow with `signed=true` after
+configuring the Apple signing certificate and App Store Connect API key secrets.
+The workflow signs the `.app`, signs the `.dmg`, submits it to Apple notarization,
+staples the ticket, and uploads the resulting DMGs.
+
 For an internal Windows test build, run the manual GitHub Actions workflow named
 `Package Windows`. It uploads unsigned CPU, DirectML, and NVIDIA CUDA installer
 artifacts plus `SHA256SUMS.txt` files. Treat CUDA artifacts as packaging checks

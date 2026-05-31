@@ -98,6 +98,39 @@ npm run tauri:build:macos
 This uses a local `hdiutil` DMG step after the Tauri `.app` build. It avoids
 Finder AppleScript decoration because that step can time out in automation.
 
+For a Developer ID signed DMG:
+
+```bash
+npm run tauri:build:macos:signed
+```
+
+For a signed and notarized DMG, first create a local notarization profile in
+Keychain:
+
+```bash
+xcrun notarytool store-credentials deepfacecam-notary \
+  --apple-id "your-apple-id@example.com" \
+  --team-id "YOUR_TEAM_ID" \
+  --password "app-specific-password"
+```
+
+Then run:
+
+```bash
+npm run tauri:build:macos:notarized
+```
+
+The signing script auto-detects the single installed `Developer ID Application`
+certificate. If the machine has more than one, set:
+
+```bash
+export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+```
+
+Local signed test builds skip secure timestamps on nested Python libraries to
+avoid long timestamp-server waits. Notarized builds enable nested timestamps
+automatically with `MACOS_NESTED_TIMESTAMP=1`.
+
 Current macOS notes:
 
 - The GitHub workflow builds two separate DMGs:
@@ -106,7 +139,8 @@ Current macOS notes:
 - Local sidecar builds use the current Mac architecture.
 - Python, backend dependencies, `ffmpeg`, and `ffprobe` are bundled in the sidecar.
 - Models stay in the app data directory and are downloaded only after the first-run prompt.
-- Developer ID signing and notarization still need to be wired before public distribution.
+- Developer ID signing uses `src-tauri/entitlements.plist`, signs nested
+  PyInstaller Mach-O files first, then signs the outer `.app` and `.dmg`.
 
 macOS acceleration notes:
 
@@ -123,10 +157,18 @@ macOS acceleration notes:
 Run the manual `Package macOS` workflow from GitHub Actions. It creates clean
 Python 3.11 packaging environments on Apple Silicon and Intel runners, builds
 the PyInstaller backend sidecar for each architecture, bundles the Tauri `.app`,
-creates unsigned DMGs, writes `SHA256SUMS.txt`, and uploads both artifacts.
+creates DMGs, writes `SHA256SUMS.txt`, and uploads both artifacts.
 
-The artifacts are for internal testing until Developer ID signing and
-notarization are configured. They are not uploaded to a public GitHub Release.
+By default the workflow creates unsigned internal test DMGs. To produce signed
+and notarized DMGs in GitHub Actions, run it with `signed=true` after adding
+these repository secrets:
+
+- `APPLE_CERTIFICATE_P12_BASE64`: base64-encoded Developer ID Application `.p12`.
+- `APPLE_CERTIFICATE_PASSWORD`: password for the exported `.p12`.
+- `APPLE_SIGNING_IDENTITY`: signing identity name.
+- `APPLE_API_KEY_ID`: App Store Connect API key ID.
+- `APPLE_API_ISSUER_ID`: App Store Connect issuer ID.
+- `APPLE_API_KEY_P8`: contents of the private `.p8` API key.
 
 ## Windows Sidecar
 

@@ -16,6 +16,8 @@
     "packaging:python:windows:cuda": "node scripts/setup-packaging-python.mjs windows-cuda",
     "sidecar:macos": "node scripts/build-macos-sidecar.mjs",
     "sidecar:windows": "node scripts/build-windows-sidecar.mjs",
+    "sign:macos": "node scripts/sign-macos-app.mjs",
+    "notarize:macos": "node scripts/notarize-macos-dmg.mjs",
     "dmg:macos": "node scripts/build-macos-dmg.mjs",
     "preview": "vite preview --port 4173",
     "backend": "node scripts/run-backend.mjs",
@@ -27,6 +29,8 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:build:macos": "npm run sidecar:macos && npm run prepare:backend && tauri build --bundles app && npm run dmg:macos",
+    "tauri:build:macos:signed": "npm run sidecar:macos && npm run prepare:backend && tauri build --bundles app && npm run sign:macos && MACOS_SIGN_DMG=1 npm run dmg:macos",
+    "tauri:build:macos:notarized": "MACOS_NESTED_TIMESTAMP=1 npm run tauri:build:macos:signed && npm run notarize:macos",
     "tauri:build:windows": "npm run sidecar:windows && npm run prepare:backend && tauri build --bundles nsis,msi"
   },
   "dependencies": {

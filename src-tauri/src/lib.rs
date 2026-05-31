@@ -1,12 +1,21 @@
 use std::env;
 use std::fs;
+use std::net::TcpListener;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, RunEvent};
 
-struct BackendHandle(Mutex<Option<Child>>);
+const DEFAULT_BACKEND_PORT: u16 = 8765;
+const BACKEND_PORT_SCAN_LIMIT: u16 = 40;
+
+struct BackendProcess {
+    child: Child,
+    port: u16,
+}
+
+struct BackendHandle(Mutex<Option<BackendProcess>>);
 
 fn is_backend_root(path: &PathBuf) -> bool {
     path.join("modules").join("backend_server.py").exists()
@@ -253,17 +262,31 @@ fn apply_runtime_env(
     }
 }
 
-fn spawn_backend(app: &AppHandle) -> Option<Child> {
+fn find_available_backend_port() -> Option<u16> {
+    for port in DEFAULT_BACKEND_PORT..DEFAULT_BACKEND_PORT + BACKEND_PORT_SCAN_LIMIT {
+        if TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return Some(port);
+        }
+    }
+    None
+}
+
+fn spawn_backend(app: &AppHandle) -> Option<BackendProcess> {
     let runtime = runtime_dirs(app);
+    let port = find_available_backend_port()?;
+    let port_arg = port.to_string();
+
     if let Some(sidecar) = find_bundled_backend(app) {
         eprintln!(
-            "[deep-face-cam] launching bundled backend sidecar: '{}'",
-            sidecar.display()
+            "[deep-face-cam] launching bundled backend sidecar: '{}' on port {}",
+            sidecar.display(),
+            port
         );
         let mut command = Command::new(&sidecar);
         command
             .arg("--port")
-            .arg("8765")
+            .arg(&port_arg)
+            .env("DEEPFACECAM_BACKEND_PORT", &port_arg)
             .env("OPENCV_AVFOUNDATION_SKIP_AUTH", "1")
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
@@ -271,44 +294,57 @@ fn spawn_backend(app: &AppHandle) -> Option<Child> {
             command.current_dir(parent);
         }
         apply_runtime_env(&mut command, runtime.as_ref(), false);
-        return command.spawn().ok();
+        return command
+            .spawn()
+            .ok()
+            .map(|child| BackendProcess { child, port });
     }
 
     let root = find_backend_root(Some(app))?;
     let py = find_python(&root);
     let source_models_available = root.join("models").join("inswapper_128.onnx").exists();
     eprintln!(
-        "[deep-face-cam] launching backend: python='{}' cwd='{}'",
+        "[deep-face-cam] launching backend: python='{}' cwd='{}' port={}",
         py,
-        root.display()
+        root.display(),
+        port
     );
     let mut command = Command::new(py);
     command
         .arg("-m")
         .arg("modules.backend_server")
         .arg("--port")
-        .arg("8765")
+        .arg(&port_arg)
         .current_dir(&root)
+        .env("DEEPFACECAM_BACKEND_PORT", &port_arg)
         .env("OPENCV_AVFOUNDATION_SKIP_AUTH", "1")
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
     apply_runtime_env(&mut command, runtime.as_ref(), source_models_available);
 
-    command.spawn().ok()
+    command
+        .spawn()
+        .ok()
+        .map(|child| BackendProcess { child, port })
 }
 
 #[tauri::command]
 fn backend_status(state: tauri::State<'_, BackendHandle>) -> serde_json::Value {
     let mut guard = state.0.lock().unwrap();
     match guard.as_mut() {
-        Some(child) => match child.try_wait() {
+        Some(backend) => match backend.child.try_wait() {
             Ok(Some(status)) => serde_json::json!({
                 "running": false,
                 "exit": status.code(),
+                "port": backend.port,
             }),
-            Ok(None) => serde_json::json!({ "running": true }),
-            Err(e) => serde_json::json!({ "running": false, "error": e.to_string() }),
+            Ok(None) => serde_json::json!({ "running": true, "port": backend.port }),
+            Err(e) => serde_json::json!({
+                "running": false,
+                "error": e.to_string(),
+                "port": backend.port,
+            }),
         },
         None => serde_json::json!({ "running": false, "spawned": false }),
     }
@@ -317,8 +353,8 @@ fn backend_status(state: tauri::State<'_, BackendHandle>) -> serde_json::Value {
 #[tauri::command]
 fn restart_backend(app: AppHandle, state: tauri::State<'_, BackendHandle>) -> Result<(), String> {
     let mut guard = state.0.lock().unwrap();
-    if let Some(mut child) = guard.take() {
-        let _ = child.kill();
+    if let Some(mut backend) = guard.take() {
+        let _ = backend.child.kill();
     }
     *guard = spawn_backend(&app);
     Ok(())
@@ -350,8 +386,8 @@ pub fn run() {
         .run(|app_handle, event| {
             if let RunEvent::Exit = event {
                 if let Some(state) = app_handle.try_state::<BackendHandle>() {
-                    if let Some(mut child) = state.0.lock().unwrap().take() {
-                        let _ = child.kill();
+                    if let Some(mut backend) = state.0.lock().unwrap().take() {
+                        let _ = backend.child.kill();
                     }
                 }
             }

@@ -26,6 +26,21 @@ export class RpcClient {
     this.url = `ws://${host}:${port}/rpc`;
   }
 
+  configure(host: string, port: number): void {
+    if (this.host === host && this.port === port) return;
+    this.host = host;
+    this.port = port;
+    this.url = `ws://${host}:${port}/rpc`;
+    if (this.reconnectTimer != null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+  }
+
   get httpBase(): string {
     return `http://${this.host}:${this.port}`;
   }

@@ -11,6 +11,18 @@ import { rpc } from "@/rpc/client";
 import { useUi } from "@/lib/store";
 import type { AppState, ModelStatus } from "@/rpc/types";
 
+async function configurePackagedBackendEndpoint() {
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const status = await invoke<{ port?: number }>("backend_status");
+    if (typeof status?.port === "number") {
+      rpc.configure("127.0.0.1", status.port);
+    }
+  } catch {
+    // Browser development falls back to VITE_BACKEND_PORT or 8765.
+  }
+}
+
 export default function App() {
   const setConnected = useUi((s) => s.setConnected);
   const setState = useUi((s) => s.setState);
@@ -32,7 +44,11 @@ export default function App() {
       setModelSetupOpen(status.missing_required.length > 0);
     };
 
-    rpc.connect();
+    let cancelled = false;
+    configurePackagedBackendEndpoint().finally(() => {
+      if (!cancelled) rpc.connect();
+    });
+
     const offConn = rpc.onConnection(async (c) => {
       setConnected(c);
       if (c) {
@@ -71,6 +87,7 @@ export default function App() {
     }, 3000);
 
     return () => {
+      cancelled = true;
       offConn();
       offEv();
       window.clearInterval(t);

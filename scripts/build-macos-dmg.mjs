@@ -32,6 +32,47 @@ function run(cmd, args) {
   }
 }
 
+function capture(cmd, args) {
+  const result = spawnSync(cmd, args, {
+    cwd: projectRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.status !== 0) {
+    process.stderr.write(result.stderr || result.stdout || "");
+    process.exit(result.status ?? 1);
+  }
+  return result.stdout ?? "";
+}
+
+function resolveSigningIdentity() {
+  if (process.env.APPLE_SIGNING_IDENTITY) {
+    return process.env.APPLE_SIGNING_IDENTITY;
+  }
+
+  const output = capture("security", ["find-identity", "-p", "codesigning", "-v"]);
+  const identities = [...output.matchAll(/"([^"]*Developer ID Application:[^"]+)"/g)].map(
+    (match) => match[1]
+  );
+
+  if (identities.length === 1) {
+    return identities[0];
+  }
+
+  if (identities.length === 0) {
+    throw new Error("No Developer ID Application signing identity found for DMG signing.");
+  }
+
+  throw new Error(
+    `Multiple Developer ID Application identities found (${identities.length}). Set APPLE_SIGNING_IDENTITY explicitly.`
+  );
+}
+
+function describeIdentity(identity) {
+  const match = identity.match(/\(([A-Z0-9]+)\)$/);
+  return match ? `Developer ID Application: <redacted> (${match[1]})` : "<redacted>";
+}
+
 async function main() {
   if (process.platform !== "darwin") {
     throw new Error("macOS DMG can only be built on macOS.");
@@ -58,6 +99,13 @@ async function main() {
     "UDZO",
     dmgPath,
   ]);
+
+  if (process.env.MACOS_SIGN_DMG === "1" || process.env.MACOS_SIGN_DMG === "true") {
+    const identity = resolveSigningIdentity();
+    console.log(`[dmg:macos] signing DMG with ${describeIdentity(identity)}`);
+    run("codesign", ["--force", "--timestamp", "--sign", identity, dmgPath]);
+    run("codesign", ["--verify", "--verbose=2", dmgPath]);
+  }
 
   console.log(`[dmg:macos] wrote ${dmgPath}`);
 }

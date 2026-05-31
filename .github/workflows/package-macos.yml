@@ -7,13 +7,18 @@ on:
         description: Artifact retention days
         required: false
         default: "14"
+      signed:
+        description: Sign and notarize with Developer ID secrets
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  macos-dmg-unsigned:
-    name: Unsigned macOS DMG (${{ matrix.name }})
+  macos-dmg:
+    name: macOS DMG (${{ matrix.name }}, ${{ inputs.signed && 'signed' || 'unsigned' }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     strategy:
@@ -63,10 +68,56 @@ jobs:
       - name: Prepare packaging Python
         run: npm run packaging:python:macos
 
+      - name: Import Developer ID certificate
+        if: ${{ inputs.signed }}
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          test -n "$APPLE_CERTIFICATE_P12_BASE64"
+          test -n "$APPLE_CERTIFICATE_PASSWORD"
+          KEYCHAIN_PATH="$RUNNER_TEMP/deepfacecam-signing.keychain-db"
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id-application.p12"
+          echo "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" "$HOME/Library/Keychains/login.keychain-db"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security find-identity -p codesigning "$KEYCHAIN_PATH" | grep -q "1 valid identities found"
+
+      - name: Prepare App Store Connect API key
+        if: ${{ inputs.signed }}
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          test -n "$APPLE_API_KEY_ID"
+          test -n "$APPLE_API_ISSUER_ID"
+          test -n "$APPLE_API_KEY_P8"
+          API_KEY_DIR="$RUNNER_TEMP/private_keys"
+          API_KEY_PATH="$API_KEY_DIR/AuthKey_${APPLE_API_KEY_ID}.p8"
+          mkdir -p "$API_KEY_DIR"
+          printf '%s' "$APPLE_API_KEY_P8" > "$API_KEY_PATH"
+          echo "APPLE_API_KEY_PATH=$API_KEY_PATH" >> "$GITHUB_ENV"
+
       - name: Build unsigned macOS DMG
+        if: ${{ !inputs.signed }}
         env:
           CI: "true"
         run: npm run tauri:build:macos
+
+      - name: Build signed and notarized macOS DMG
+        if: ${{ inputs.signed }}
+        env:
+          CI: "true"
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: npm run tauri:build:macos:notarized
 
       - name: Generate checksums
         run: npm run release:checksums
@@ -77,7 +128,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: deepfacecam-macos-unsigned-${{ matrix.artifact_suffix }}
+          name: deepfacecam-macos-${{ inputs.signed && 'signed' || 'unsigned' }}-${{ matrix.artifact_suffix }}
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/SHA256SUMS.txt

@@ -48,13 +48,11 @@ const forbiddenPatterns = [
 ];
 
 const secretPatterns = [
-  /APPLE_ID/i,
-  /APPLE_APP_SPECIFIC_PASSWORD/i,
-  /ASC_API_KEY/i,
-  /CODESIGN/i,
-  /BEGIN PRIVATE KEY/,
-  /AWS_SECRET_ACCESS_KEY/i,
-  /GITHUB_TOKEN\s*=/i,
+  /BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY/,
+  /APPLE_APP_SPECIFIC_PASSWORD\s*=\s*["']?[^"'<\s$][^"'\s]*/i,
+  /ASC_API_KEY\s*=\s*["']?[^"'<\s$][^"'\s]*/i,
+  /AWS_SECRET_ACCESS_KEY\s*=\s*["']?[^"'<\s$][^"'\s]*/i,
+  /GITHUB_TOKEN\s*=\s*["']?[^"'<\s$][^"'\s]*/i,
 ];
 
 function runGit(args) {

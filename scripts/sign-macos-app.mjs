@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 
-import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
@@ -38,6 +44,61 @@ function run(cmd, args, options = {}) {
   }
 
   return result.stdout ?? "";
+}
+
+function isDirectory(path) {
+  try {
+    return lstatSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function isSymlink(path) {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+function replaceWithSymlink(target, linkPath) {
+  if (existsSync(linkPath)) {
+    if (isSymlink(linkPath)) {
+      return;
+    }
+    rmSync(linkPath, { recursive: true, force: true });
+  }
+  symlinkSync(target, linkPath);
+}
+
+function normalizeVersionedFrameworks(appDir) {
+  const findOutput = run(
+    "find",
+    [appDir, "-type", "d", "-name", "*.framework", "-print0"],
+    { capture: true }
+  );
+
+  for (const frameworkDir of findOutput.split("\0").filter(Boolean)) {
+    const versionsDir = join(frameworkDir, "Versions");
+    if (!isDirectory(versionsDir)) continue;
+
+    const versions = readdirSync(versionsDir).filter((entry) => {
+      if (entry === "Current") return false;
+      return isDirectory(join(versionsDir, entry));
+    });
+    if (versions.length !== 1) continue;
+
+    const frameworkName = basename(frameworkDir, ".framework");
+    replaceWithSymlink(versions[0], join(versionsDir, "Current"));
+    replaceWithSymlink(
+      `Versions/Current/${frameworkName}`,
+      join(frameworkDir, frameworkName)
+    );
+    if (existsSync(join(versionsDir, versions[0], "Resources"))) {
+      replaceWithSymlink("Versions/Current/Resources", join(frameworkDir, "Resources"));
+    }
+  }
 }
 
 function resolveSigningIdentity() {
@@ -100,9 +161,27 @@ function findMachOFiles(appDir) {
   return findOutput
     .split("\0")
     .filter(Boolean)
+    .filter((file) => !/\.framework\/[^/]+$/.test(file))
     .filter((file) => {
       const description = run("file", ["-b", file], { capture: true });
       return description.includes("Mach-O");
+    })
+    .sort((a, b) => b.length - a.length);
+}
+
+function findFrameworkVersionDirs(appDir) {
+  const findOutput = run(
+    "find",
+    [appDir, "-type", "d", "-path", "*.framework/Versions/*", "-print0"],
+    { capture: true }
+  );
+
+  return findOutput
+    .split("\0")
+    .filter(Boolean)
+    .filter((path) => {
+      const version = path.split(".framework/Versions/")[1];
+      return version && !version.includes("/") && version !== "Current";
     })
     .sort((a, b) => b.length - a.length);
 }
@@ -173,6 +252,8 @@ function main() {
     }`
   );
 
+  normalizeVersionedFrameworks(appDir);
+
   const machOFiles = findMachOFiles(appDir);
   console.log(`[sign:macos] signing ${machOFiles.length} nested Mach-O files`);
   for (const [index, file] of machOFiles.entries()) {
@@ -180,6 +261,16 @@ function main() {
       console.log(`[sign:macos] nested ${index + 1}/${machOFiles.length}: ${file}`);
     }
     signFile(file, identity, nestedTimestamp);
+  }
+
+  const frameworkVersionDirs = findFrameworkVersionDirs(appDir);
+  if (frameworkVersionDirs.length > 0) {
+    console.log(
+      `[sign:macos] signing ${frameworkVersionDirs.length} framework version bundles`
+    );
+    for (const frameworkVersionDir of frameworkVersionDirs) {
+      signFile(frameworkVersionDir, identity, nestedTimestamp);
+    }
   }
 
   signApp(appDir, identity, entitlements, appTimestamp);

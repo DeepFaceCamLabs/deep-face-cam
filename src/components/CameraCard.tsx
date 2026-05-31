@@ -5,6 +5,11 @@ import { useUi } from "@/lib/store";
 import { rpc } from "@/rpc/client";
 import { Tooltip } from "./Tooltip";
 import { useI18n } from "@/i18n";
+import {
+  ensureCameraAccess,
+  normalizeCameraStartError,
+  showCameraWarning,
+} from "@/lib/cameraAccess";
 
 interface Props {
   variant?: "compact" | "panel";
@@ -40,6 +45,22 @@ export function CameraCard({ variant = "compact" }: Props) {
   const liveRunning = Boolean(state?.live_running);
   const disabled = noCam || state?.processing || liveRunning;
 
+  const requestCameraAccess = async () => {
+    const result = await ensureCameraAccess({
+      denied: t("camera.permissionDenied"),
+      unavailable: t("camera.permissionUnavailable"),
+      busy: t("camera.permissionBusy"),
+      failed: t("camera.permissionFailed"),
+    });
+    if (!result.ok) {
+      const error = result.error ?? t("camera.startFailed");
+      pushStatus(error);
+      await showCameraWarning(t("camera.permissionTitle"), error);
+      return false;
+    }
+    return true;
+  };
+
   const onLive = async () => {
     if (disabled) return;
     const camIdx = cams[selected]?.index ?? 0;
@@ -56,9 +77,16 @@ export function CameraCard({ variant = "compact" }: Props) {
       pushStatus(t("camera.selectSourceFirst"));
       return;
     }
+    if (!(await requestCameraAccess())) return;
     const r = await rpc.startLive(camIdx);
     if (!r.ok) {
-      pushStatus(r.error ?? t("camera.startFailed"));
+      const error = normalizeCameraStartError(
+        r.error,
+        t("camera.startFailed"),
+        t("camera.openFailedHelp")
+      );
+      pushStatus(error);
+      await showCameraWarning(t("camera.permissionTitle"), error);
       return;
     }
     setStageMode("live");

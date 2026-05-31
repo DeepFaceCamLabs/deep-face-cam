@@ -4,6 +4,11 @@ import { rpc } from "@/rpc/client";
 import { FILTERS, pickFile } from "@/lib/dialog";
 import { Plus, Trash2, Check, ImagePlus } from "lucide-react";
 import { useI18n } from "@/i18n";
+import {
+  ensureCameraAccess,
+  normalizeCameraStartError,
+  showCameraWarning,
+} from "@/lib/cameraAccess";
 
 interface Props {
   open: boolean;
@@ -64,9 +69,27 @@ export function MapperModal({ open, onClose, mode }: Props) {
       }
       pushStatus(t("mapping.submitted"));
       const camIdx = (window as any).__liveCameraIndex ?? 0;
+      const access = await ensureCameraAccess({
+        denied: t("camera.permissionDenied"),
+        unavailable: t("camera.permissionUnavailable"),
+        busy: t("camera.permissionBusy"),
+        failed: t("camera.permissionFailed"),
+      });
+      if (!access.ok) {
+        const error = access.error ?? t("camera.startFailed");
+        pushStatus(error);
+        await showCameraWarning(t("camera.permissionTitle"), error);
+        return;
+      }
       const live = await rpc.startLive(camIdx);
       if (!live.ok) {
-        pushStatus(live.error ?? t("camera.startFailed"));
+        const error = normalizeCameraStartError(
+          live.error,
+          t("camera.startFailed"),
+          t("camera.openFailedHelp")
+        );
+        pushStatus(error);
+        await showCameraWarning(t("camera.permissionTitle"), error);
         return;
       }
       onClose();

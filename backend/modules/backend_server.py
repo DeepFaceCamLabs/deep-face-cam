@@ -257,6 +257,11 @@ class _LiveSession:
         self.cap = VideoCapturer(camera_index)
         ok = self.cap.start(960, 540, 60)
         if not ok:
+            if platform.system() == "Darwin":
+                raise RuntimeError(
+                    "Camera did not open. Allow DeepFaceCam in System Settings > "
+                    "Privacy & Security > Camera, then try again."
+                )
             raise RuntimeError("Failed to open camera")
         self.actual_fps = self.cap.actual_fps or 30.0
         self._stop = threading.Event()

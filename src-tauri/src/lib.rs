@@ -287,7 +287,9 @@ fn spawn_backend(app: &AppHandle) -> Option<BackendProcess> {
             .arg("--port")
             .arg(&port_arg)
             .env("DEEPFACECAM_BACKEND_PORT", &port_arg)
-            .env("OPENCV_AVFOUNDATION_SKIP_AUTH", "1")
+            .env("DEEPFACECAM_APP_NAME", "DeepFaceCam")
+            .env("DEEPFACECAM_APP_VERSION", env!("CARGO_PKG_VERSION"))
+            .env("DEEPFACECAM_APP_EDITION", "Desktop Edition")
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
         if let Some(parent) = sidecar.parent() {
@@ -317,7 +319,9 @@ fn spawn_backend(app: &AppHandle) -> Option<BackendProcess> {
         .arg(&port_arg)
         .current_dir(&root)
         .env("DEEPFACECAM_BACKEND_PORT", &port_arg)
-        .env("OPENCV_AVFOUNDATION_SKIP_AUTH", "1")
+        .env("DEEPFACECAM_APP_NAME", "DeepFaceCam")
+        .env("DEEPFACECAM_APP_VERSION", env!("CARGO_PKG_VERSION"))
+        .env("DEEPFACECAM_APP_EDITION", "Desktop Edition")
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 

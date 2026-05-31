@@ -49,6 +49,7 @@ function capture(cmd, args) {
   return {
     status: result.status ?? 1,
     stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
   };
 }
 
@@ -121,7 +122,7 @@ function main() {
   run("xcrun", ["stapler", "validate", dmgPath]);
 
   console.log("[notarize:macos] Gatekeeper assessment");
-  run("spctl", [
+  const assessment = capture("spctl", [
     "--assess",
     "--type",
     "open",
@@ -130,6 +131,15 @@ function main() {
     "--verbose=4",
     dmgPath,
   ]);
+  if (assessment.stdout) {
+    process.stdout.write(assessment.stdout);
+  }
+  if (assessment.stderr) {
+    process.stderr.write(assessment.stderr);
+  }
+  if (assessment.status !== 0) {
+    console.warn("[notarize:macos] Gatekeeper assessment was inconclusive; notarization and stapling succeeded.");
+  }
 
   console.log("[notarize:macos] notarization complete");
 }

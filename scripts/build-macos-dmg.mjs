@@ -32,6 +32,28 @@ function run(cmd, args) {
   }
 }
 
+function delay(ms) {
+  return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
+}
+
+async function runWithRetry(cmd, args, attempts = 3) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const result = spawnSync(cmd, args, {
+      cwd: projectRoot,
+      stdio: "inherit",
+    });
+    if (result.status === 0) {
+      return;
+    }
+    if (attempt === attempts) {
+      process.exit(result.status ?? 1);
+    }
+    console.warn(`[dmg:macos] ${cmd} failed; retrying (${attempt + 1}/${attempts})`);
+    await rm(dmgPath, { force: true });
+    await delay(5000);
+  }
+}
+
 function capture(cmd, args) {
   const result = spawnSync(cmd, args, {
     cwd: projectRoot,
@@ -88,7 +110,7 @@ async function main() {
   });
   await symlink("/Applications", resolve(stagingDir, "Applications"));
 
-  run("hdiutil", [
+  await runWithRetry("hdiutil", [
     "create",
     "-volname",
     "DeepFaceCam",

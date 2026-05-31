@@ -17,6 +17,103 @@ struct BackendProcess {
 
 struct BackendHandle(Mutex<Option<BackendProcess>>);
 
+#[cfg(target_os = "macos")]
+mod camera_permission {
+    use std::ffi::CStr;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use block2::RcBlock;
+    use objc2::msg_send;
+    use objc2::runtime::{AnyClass, Bool};
+    use objc2_foundation::NSString;
+
+    #[link(name = "AVFoundation", kind = "framework")]
+    unsafe extern "C" {
+        static AVMediaTypeVideo: *const NSString;
+    }
+
+    const NOT_DETERMINED: isize = 0;
+    const RESTRICTED: isize = 1;
+    const DENIED: isize = 2;
+    const AUTHORIZED: isize = 3;
+
+    fn status_name(status: isize) -> &'static str {
+        match status {
+            NOT_DETERMINED => "notDetermined",
+            RESTRICTED => "restricted",
+            DENIED => "denied",
+            AUTHORIZED => "authorized",
+            _ => "unknown",
+        }
+    }
+
+    fn response(status: &str, granted: bool) -> serde_json::Value {
+        serde_json::json!({
+            "status": status,
+            "granted": granted,
+        })
+    }
+
+    pub fn request_camera_permission() -> serde_json::Value {
+        let class_name = CStr::from_bytes_with_nul(b"AVCaptureDevice\0")
+            .expect("AVCaptureDevice class name is nul-terminated");
+        let Some(camera_class) = AnyClass::get(class_name) else {
+            return response("unavailable", false);
+        };
+
+        let media_type = unsafe {
+            if AVMediaTypeVideo.is_null() {
+                return response("unavailable", false);
+            }
+            &*AVMediaTypeVideo
+        };
+
+        let status: isize = unsafe {
+            msg_send![
+                camera_class,
+                authorizationStatusForMediaType: media_type,
+            ]
+        };
+
+        match status {
+            AUTHORIZED => response("authorized", true),
+            DENIED | RESTRICTED => response(status_name(status), false),
+            NOT_DETERMINED => {
+                let (tx, rx) = mpsc::channel();
+                let completion = RcBlock::new(move |granted: Bool| {
+                    let _ = tx.send(granted.as_bool());
+                });
+
+                let _: () = unsafe {
+                    msg_send![
+                        camera_class,
+                        requestAccessForMediaType: media_type,
+                        completionHandler: &*completion,
+                    ]
+                };
+
+                match rx.recv_timeout(Duration::from_secs(120)) {
+                    Ok(true) => response("authorized", true),
+                    Ok(false) => response("denied", false),
+                    Err(_) => response("timeout", false),
+                }
+            }
+            _ => response("unknown", false),
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+mod camera_permission {
+    pub fn request_camera_permission() -> serde_json::Value {
+        serde_json::json!({
+            "status": "authorized",
+            "granted": true,
+        })
+    }
+}
+
 fn is_backend_root(path: &PathBuf) -> bool {
     path.join("modules").join("backend_server.py").exists()
 }
@@ -86,8 +183,7 @@ fn find_backend_root(app: Option<&AppHandle>) -> Option<PathBuf> {
             if is_backend_root(&resource_backend) {
                 return Some(resource_backend);
             }
-            let generated_resource_backend =
-                p.join("Resources").join("generated").join("backend");
+            let generated_resource_backend = p.join("Resources").join("generated").join("backend");
             if is_backend_root(&generated_resource_backend) {
                 return Some(generated_resource_backend);
             }
@@ -364,13 +460,22 @@ fn restart_backend(app: AppHandle, state: tauri::State<'_, BackendHandle>) -> Re
     Ok(())
 }
 
+#[tauri::command]
+fn request_camera_permission() -> serde_json::Value {
+    camera_permission::request_camera_permission()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .manage(BackendHandle(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![backend_status, restart_backend])
+        .invoke_handler(tauri::generate_handler![
+            backend_status,
+            restart_backend,
+            request_camera_permission,
+        ])
         .setup(|app| {
             let state = app.state::<BackendHandle>();
             let app_handle = app.handle().clone();

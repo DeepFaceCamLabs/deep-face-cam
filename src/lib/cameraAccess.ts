@@ -10,19 +10,66 @@ export interface CameraAccessResult {
   error?: string;
 }
 
+interface NativeCameraAccessResult {
+  granted?: boolean;
+  status?: string;
+}
+
 function isMacRuntime() {
   if (typeof navigator === "undefined") return false;
   return /Macintosh|Mac OS X|MacIntel/i.test(navigator.userAgent);
+}
+
+function isTauriRuntime() {
+  return (
+    typeof window !== "undefined" &&
+    "__TAURI_INTERNALS__" in
+      (window as unknown as Record<string, unknown>)
+  );
 }
 
 function stopStream(stream: MediaStream) {
   stream.getTracks().forEach((track) => track.stop());
 }
 
+function nativeCameraError(
+  result: NativeCameraAccessResult,
+  messages: CameraAccessMessages
+) {
+  if (result.status === "unavailable") return messages.unavailable;
+  if (result.status === "timeout") return messages.failed;
+  if (result.status === "unknown") return messages.failed;
+  return messages.denied;
+}
+
+async function ensureNativeCameraAccess(
+  messages: CameraAccessMessages
+): Promise<CameraAccessResult | null> {
+  if (!isTauriRuntime()) return null;
+
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const result = await invoke<NativeCameraAccessResult>(
+      "request_camera_permission"
+    );
+    if (result.granted) return { ok: true };
+    return { ok: false, error: nativeCameraError(result, messages) };
+  } catch {
+    return null;
+  }
+}
+
 export async function ensureCameraAccess(
   messages: CameraAccessMessages
 ): Promise<CameraAccessResult> {
-  if (!isMacRuntime() || !navigator.mediaDevices?.getUserMedia) {
+  if (!isMacRuntime()) {
+    return { ok: true };
+  }
+
+  const nativeAccess = await ensureNativeCameraAccess(messages);
+  if (nativeAccess) return nativeAccess;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
     return { ok: true };
   }
 

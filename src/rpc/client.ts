@@ -1,4 +1,10 @@
-import type { AppState, MapEntry, ModelStatus, ServerEvent } from "./types";
+import type {
+  AppState,
+  MapEntry,
+  ModelStatus,
+  RuntimeDiagnostics,
+  ServerEvent,
+} from "./types";
 
 type Pending = {
   resolve: (v: any) => void;
@@ -152,6 +158,9 @@ export class RpcClient {
   }
   getRuntimePaths(): Promise<Record<string, string>> {
     return this.call("get_runtime_paths");
+  }
+  runtimeDiagnostics(): Promise<RuntimeDiagnostics> {
+    return this.call("runtime_diagnostics", undefined, 15_000);
   }
   modelStatus(verify = false) {
     return this.call<ModelStatus>("model_status", { verify });

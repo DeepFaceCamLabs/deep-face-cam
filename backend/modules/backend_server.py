@@ -31,6 +31,7 @@ import sys
 import threading
 import time
 import traceback
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Dict, List, Optional
 
@@ -70,6 +71,7 @@ from modules.paths import (
     ensure_runtime_dirs,
 )
 from modules.processors.frame.core import get_frame_processors_modules
+from modules.runtime_diagnostics import collect_runtime_diagnostics
 from modules.utilities import has_image_extension, is_image, is_video, normalize_output_path
 from modules.video_capture import VideoCapturer
 
@@ -269,6 +271,9 @@ class _LiveSession:
         self._out_q: queue.Queue = queue.Queue(maxsize=2)
         self._latest_jpeg: bytes = b""
         self._latest_lock = threading.Lock()
+        self._metrics_lock = threading.Lock()
+        self._metrics: Dict[str, deque] = {}
+        self._last_fps = 0.0
         self._listeners: List[threading.Event] = []
 
         self._t_capture = threading.Thread(target=self._run_capture,
@@ -285,7 +290,9 @@ class _LiveSession:
 
     def _run_capture(self) -> None:
         while not self._stop.is_set():
+            t0 = time.perf_counter()
             ret, frame = self.cap.read()
+            self._record_metric("capture_ms", (time.perf_counter() - t0) * 1000)
             if not ret or frame is None:
                 self._stop.set()
                 break
@@ -310,6 +317,7 @@ class _LiveSession:
             except queue.Empty:
                 continue
 
+            process_start = time.perf_counter()
             temp_frame = frame
             if G.live_mirror:
                 temp_frame = gpu_flip(temp_frame, 1)
@@ -321,12 +329,16 @@ class _LiveSession:
 
                 det_count += 1
                 if det_count % det_interval == 0:
+                    det_start = time.perf_counter()
                     if G.many_faces:
                         cached_target_face = None
                         cached_many_faces = detect_many_faces_fast(temp_frame)
                     else:
                         cached_target_face = detect_one_face_fast(temp_frame)
                         cached_many_faces = None
+                    self._record_metric(
+                        "detect_ms", (time.perf_counter() - det_start) * 1000
+                    )
 
                 cached_faces = None
                 if cached_many_faces:
@@ -337,17 +349,30 @@ class _LiveSession:
                 for fp in frame_processors:
                     if fp.NAME == "DLC.FACE-ENHANCER":
                         if G.fp_ui.get("face_enhancer", False):
+                            enh_start = time.perf_counter()
                             temp_frame = fp.process_frame(None, temp_frame,
                                                           detected_faces=cached_faces)
+                            self._record_metric(
+                                "enhance_ms", (time.perf_counter() - enh_start) * 1000
+                            )
                     elif fp.NAME == "DLC.FACE-ENHANCER-GPEN256":
                         if G.fp_ui.get("face_enhancer_gpen256", False):
+                            enh_start = time.perf_counter()
                             temp_frame = fp.process_frame(None, temp_frame,
                                                           detected_faces=cached_faces)
+                            self._record_metric(
+                                "enhance_ms", (time.perf_counter() - enh_start) * 1000
+                            )
                     elif fp.NAME == "DLC.FACE-ENHANCER-GPEN512":
                         if G.fp_ui.get("face_enhancer_gpen512", False):
+                            enh_start = time.perf_counter()
                             temp_frame = fp.process_frame(None, temp_frame,
                                                           detected_faces=cached_faces)
+                            self._record_metric(
+                                "enhance_ms", (time.perf_counter() - enh_start) * 1000
+                            )
                     elif fp.NAME == "DLC.FACE-SWAPPER":
+                        swap_start = time.perf_counter()
                         swapped_bboxes = []
                         if G.many_faces and cached_many_faces:
                             result = temp_frame.copy()
@@ -363,25 +388,50 @@ class _LiveSession:
                                     and cached_target_face.bbox is not None):
                                 swapped_bboxes.append(cached_target_face.bbox.astype(int))
                         temp_frame = fp.apply_post_processing(temp_frame, swapped_bboxes)
+                        self._record_metric(
+                            "swap_ms", (time.perf_counter() - swap_start) * 1000
+                        )
                     else:
+                        fp_start = time.perf_counter()
                         temp_frame = fp.process_frame(source_image, temp_frame)
+                        self._record_metric(
+                            "processor_ms", (time.perf_counter() - fp_start) * 1000
+                        )
             else:
                 G.target_path = None
                 for fp in frame_processors:
                     if fp.NAME == "DLC.FACE-ENHANCER":
                         if G.fp_ui.get("face_enhancer", False):
+                            enh_start = time.perf_counter()
                             temp_frame = fp.process_frame_v2(temp_frame)
+                            self._record_metric(
+                                "enhance_ms", (time.perf_counter() - enh_start) * 1000
+                            )
                     elif fp.NAME in ("DLC.FACE-ENHANCER-GPEN256", "DLC.FACE-ENHANCER-GPEN512"):
                         fp_key = fp.NAME.split(".")[-1].lower().replace("-", "_")
                         if G.fp_ui.get(fp_key, False):
+                            enh_start = time.perf_counter()
                             temp_frame = fp.process_frame_v2(temp_frame)
+                            self._record_metric(
+                                "enhance_ms", (time.perf_counter() - enh_start) * 1000
+                            )
                     else:
+                        swap_start = time.perf_counter()
                         temp_frame = fp.process_frame_v2(temp_frame)
+                        if getattr(fp, "NAME", "") == "DLC.FACE-SWAPPER":
+                            self._record_metric(
+                                "swap_ms", (time.perf_counter() - swap_start) * 1000
+                            )
+                        else:
+                            self._record_metric(
+                                "processor_ms", (time.perf_counter() - swap_start) * 1000
+                            )
 
             current_time = time.time()
             frame_count += 1
             if current_time - prev_time >= fps_update_interval:
                 fps = frame_count / (current_time - prev_time)
+                self._set_fps(fps)
                 frame_count = 0
                 prev_time = current_time
 
@@ -390,6 +440,9 @@ class _LiveSession:
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             self._push(self._out_q, temp_frame)
+            self._record_metric(
+                "process_ms", (time.perf_counter() - process_start) * 1000
+            )
 
     def _run_encode(self) -> None:
         while not self._stop.is_set():
@@ -397,8 +450,10 @@ class _LiveSession:
                 frame = self._out_q.get(timeout=0.1)
             except queue.Empty:
                 continue
+            encode_start = time.perf_counter()
             frame = _fit(frame, 1280, 720)
             buf = _encode_jpeg(frame, quality=80)
+            self._record_metric("encode_ms", (time.perf_counter() - encode_start) * 1000)
             if not buf:
                 continue
             with self._latest_lock:
@@ -421,6 +476,48 @@ class _LiveSession:
                 q.put_nowait(frame)
             except queue.Full:
                 pass
+
+    def _record_metric(self, name: str, value: float) -> None:
+        with self._metrics_lock:
+            bucket = self._metrics.get(name)
+            if bucket is None:
+                bucket = deque(maxlen=180)
+                self._metrics[name] = bucket
+            bucket.append(float(value))
+
+    def _set_fps(self, fps: float) -> None:
+        with self._metrics_lock:
+            self._last_fps = float(fps)
+
+    def metrics_snapshot(self) -> Dict[str, Any]:
+        with self._metrics_lock:
+            metrics = {}
+            for name, values in self._metrics.items():
+                if not values:
+                    continue
+                numeric = list(values)
+                metrics[name] = {
+                    "last_ms": round(numeric[-1], 2),
+                    "avg_ms": round(sum(numeric) / len(numeric), 2),
+                    "max_ms": round(max(numeric), 2),
+                    "samples": len(numeric),
+                }
+            fps = round(self._last_fps, 2)
+        return {
+            "running": not self._stop.is_set(),
+            "fps": fps,
+            "camera": {
+                "index": self.camera_index,
+                "width": self.actual_width,
+                "height": self.actual_height,
+                "fps": round(self.actual_fps, 2),
+            },
+            "queues": {
+                "raw": self._raw_q.qsize(),
+                "processed": self._out_q.qsize(),
+            },
+            "metrics": metrics,
+        }
 
     def latest_jpeg(self) -> bytes:
         with self._latest_lock:
@@ -579,6 +676,13 @@ async def _get_runtime_paths() -> Dict[str, str]:
         "ffmpeg": shutil.which("ffmpeg") or "",
         "ffprobe": shutil.which("ffprobe") or "",
     }
+
+
+@rpc("runtime_diagnostics")
+async def _runtime_diagnostics() -> Dict[str, Any]:
+    with SRV.live_lock:
+        live = SRV.live.metrics_snapshot() if SRV.live is not None else {"running": False}
+    return collect_runtime_diagnostics(live)
 
 
 @rpc("model_status")

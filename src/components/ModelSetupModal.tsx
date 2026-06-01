@@ -59,26 +59,12 @@ export function ModelSetupModal({
   const [error, setError] = useState<string | null>(null);
 
   const allModels = useMemo(() => status?.models ?? [], [status]);
-  const requiredModels = useMemo(
-    () => status?.models.filter((model) => model.required) ?? [],
-    [status]
-  );
-  const optionalModels = useMemo(
-    () => status?.models.filter((model) => !model.required) ?? [],
-    [status]
-  );
-  const missingRequiredModels = requiredModels.filter((model) => !model.present);
-  const missingOptionalModels = optionalModels.filter((model) => !model.present);
   const missingModels = allModels.filter((model) => !model.present);
-  const missingBytes = missingRequiredModels.reduce(
-    (sum, model) => sum + model.size_bytes,
-    0
-  );
   const missingAllBytes = missingModels.reduce(
     (sum, model) => sum + model.size_bytes,
     0
   );
-  const blocking = missingRequiredModels.length > 0;
+  const blocking = missingModels.length > 0;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -112,15 +98,15 @@ export function ModelSetupModal({
     return next;
   };
 
-  const download = async (ids?: string[], requiredOnly = false) => {
+  const download = async () => {
     setDownloading(true);
     setError(null);
     setProgress({});
     pushStatus(t("model.downloading"));
     try {
-      const result = await rpc.downloadModels(ids, requiredOnly);
+      const result = await rpc.downloadModels(undefined, false);
       onStatusChange(result.status);
-      if (!result.ok || (requiredOnly && result.status.missing_required.length > 0)) {
+      if (!result.ok) {
         const failed = result.results.find((item) => !item.ok);
         throw new Error(failed?.error ?? t("model.downloadFailed"));
       }
@@ -170,7 +156,7 @@ export function ModelSetupModal({
                         : t("model.missing")}
                 </div>
               </div>
-              {!model.present && downloading ? (
+              {!model.present && downloading && item ? (
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
                   <div
                     className="h-full rounded-full bg-accent transition-all"
@@ -195,49 +181,74 @@ export function ModelSetupModal({
         if (!value && !blocking && !downloading) onClose();
       }}
       title={t("model.title")}
-      description={blocking ? t("model.description") : t("model.readyDescription")}
+      description={
+        missingModels.length > 0
+          ? t("model.description")
+          : t("model.readyDescription")
+      }
       size="md"
       showClose={!blocking && !downloading}
     >
       <div className="space-y-4">
         <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 text-accent">
-              {blocking ? (
-                <AlertTriangle size={18} />
-              ) : (
-                <CheckCircle2 size={18} />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium text-zinc-100">
-                {blocking
-                  ? t("model.requiredMissing", { count: missingRequiredModels.length })
-                  : missingOptionalModels.length > 0
-                    ? t("model.optionalMissing", { count: missingOptionalModels.length })
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="mt-0.5 text-accent">
+                {missingModels.length > 0 ? (
+                  <AlertTriangle size={18} />
+                ) : (
+                  <CheckCircle2 size={18} />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-zinc-100">
+                  {missingModels.length > 0
+                    ? t("model.requiredMissing", { count: missingModels.length })
                     : t("model.allReady")}
-              </div>
-              <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-zinc-500">
-                <HardDrive size={13} />
-                <span className="truncate" title={status?.models_dir}>
-                  {status?.models_dir}
-                </span>
-              </div>
-              {blocking || missingModels.length > 0 ? (
-                <div className="mt-2 text-xs text-zinc-400">
-                  {blocking
-                    ? t("model.totalDownload", { size: formatBytes(missingBytes) })
-                    : t("model.totalMissingDownload", {
-                        size: formatBytes(missingAllBytes),
-                      })}
                 </div>
+                <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-zinc-500">
+                  <HardDrive size={13} />
+                  <span className="truncate" title={status?.models_dir}>
+                    {status?.models_dir}
+                  </span>
+                </div>
+                {missingModels.length > 0 ? (
+                  <div className="mt-2 text-xs text-zinc-400">
+                    {t("model.totalDownload", {
+                      size: formatBytes(missingAllBytes),
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 self-stretch sm:flex-row sm:items-center sm:self-start">
+              <button
+                onClick={refresh}
+                disabled={downloading}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-medium text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <RefreshCw size={15} />
+                {t("model.refresh")}
+              </button>
+              {missingModels.length > 0 ? (
+                <button
+                  onClick={download}
+                  disabled={downloading}
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-4 text-sm font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 sm:flex-none"
+                >
+                  {downloading ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Download size={15} />
+                  )}
+                  {downloading ? t("model.downloading") : t("model.downloadMissing")}
+                </button>
               ) : null}
             </div>
           </div>
         </div>
 
-        {renderModels(t("model.requiredSection"), requiredModels)}
-        {renderModels(t("model.optionalSection"), optionalModels)}
+        {renderModels(t("model.requiredSection"), allModels)}
 
         {error ? (
           <div className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-red-100">
@@ -245,55 +256,16 @@ export function ModelSetupModal({
           </div>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <button
-            onClick={refresh}
-            disabled={downloading}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RefreshCw size={15} />
-            {t("model.refresh")}
-          </button>
-          {blocking ? (
-            <button
-              onClick={() => download(undefined, true)}
-              disabled={downloading}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {downloading ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <Download size={15} />
-              )}
-              {downloading ? t("model.downloading") : t("model.downloadRequired")}
-            </button>
-          ) : missingModels.length > 0 ? (
-            <button
-              onClick={() =>
-                download(
-                  missingModels.map((model) => model.id),
-                  false
-                )
-              }
-              disabled={downloading}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {downloading ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <Download size={15} />
-              )}
-              {downloading ? t("model.downloading") : t("model.downloadMissing")}
-            </button>
-          ) : (
+        {!blocking ? (
+          <div className="flex items-center justify-end gap-2 pt-1">
             <button
               onClick={onClose}
               className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-110"
             >
               {t("model.continue")}
             </button>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
     </Dialog>
   );

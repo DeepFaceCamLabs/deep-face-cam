@@ -1,5 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import glob
+import sysconfig
 from pathlib import Path
 
 project_root = Path(SPECPATH).parents[1]
@@ -13,6 +15,25 @@ datas = [
 ]
 if runtime_bin.exists():
     datas.append((str(runtime_bin), "bin"))
+
+binaries = []
+for root in {
+    sysconfig.get_paths().get("purelib"),
+    sysconfig.get_paths().get("platlib"),
+}:
+    if not root:
+        continue
+    for dll in glob.glob(str(Path(root) / "nvidia" / "*" / "*" / "*.dll")):
+        source = Path(dll)
+        parts = source.parts
+        if "nvidia" in parts:
+            nvidia_index = parts.index("nvidia")
+            dest = str(Path(*parts[nvidia_index:-1]))
+        else:
+            dest = "."
+        item = (str(source), dest)
+        if item not in binaries:
+            binaries.append(item)
 
 hiddenimports = [
     "modules.processors.frame.face_swapper",
@@ -60,7 +81,7 @@ excludes = [
 a = Analysis(
     [str(project_root / "packaging" / "pyinstaller" / "deepfacecam_backend.py")],
     pathex=[str(shims_root), str(backend_root)],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

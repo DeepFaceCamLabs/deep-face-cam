@@ -264,7 +264,8 @@ def _init_cuda_graph_session(model_path: str, swapper):
 
         import sys
         print(f"[{NAME}] CUDA graph session initialized (swap model)")
-        sys.stdout.flush()
+        if sys.stdout is not None:
+            sys.stdout.flush()
     except Exception as e:
         print(f"[{NAME}] CUDA graph init failed, using standard session: {e}")
         _cuda_graph_session['recorded'] = False

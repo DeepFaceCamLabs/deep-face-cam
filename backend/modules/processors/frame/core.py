@@ -7,11 +7,11 @@ from types import ModuleType
 from typing import Any, List, Callable
 
 import numpy as np
-from tqdm import tqdm
 
 import modules
 import modules.globals
 from modules.face_analyser import get_one_face
+from modules.progress import tqdm
 
 FRAME_PROCESSORS_MODULES: List[ModuleType] = []
 FRAME_PROCESSORS_INTERFACE = [
@@ -310,6 +310,16 @@ def _run_pipe_pipeline(
         )
     except Exception as e:
         print(f"[DLC.CORE] Failed to start FFmpeg pipes: {e}")
+        for proc in (reader, writer):
+            if proc:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+        return False
+
+    if reader.stdout is None or writer.stdin is None:
+        print("[DLC.CORE] FFmpeg pipe streams were not created.")
         for proc in (reader, writer):
             if proc:
                 try:

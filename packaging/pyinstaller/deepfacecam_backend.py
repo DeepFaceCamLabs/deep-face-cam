@@ -21,6 +21,36 @@ def _prepend_path(path: Path) -> None:
         os.environ["PATH"] = str(path) + os.pathsep + os.environ.get("PATH", "")
 
 
+def _register_dll_dir(path: Path) -> None:
+    if not path.exists():
+        return
+    _prepend_path(path)
+    try:
+        os.add_dll_directory(str(path))
+    except (AttributeError, OSError):
+        pass
+
+
+def _configure_windows_cuda_paths(root: Path) -> None:
+    if sys.platform != "win32":
+        return
+
+    search_roots = [
+        root,
+        Path(sys.executable).resolve().parent,
+        Path(sys.prefix) / "Lib" / "site-packages",
+    ]
+    for base in search_roots:
+        _register_dll_dir(base / "onnxruntime" / "capi")
+        _register_dll_dir(base / "torch" / "lib")
+        nvidia_root = base / "nvidia"
+        if not nvidia_root.exists():
+            continue
+        for package_dir in nvidia_root.iterdir():
+            _register_dll_dir(package_dir / "bin")
+            _register_dll_dir(package_dir / "lib")
+
+
 def configure_runtime() -> None:
     root = _resource_root()
     os.environ.setdefault("PYTHONUNBUFFERED", "1")
@@ -33,6 +63,7 @@ def configure_runtime() -> None:
     _prepend_path(root / "bin")
     _prepend_path(Path(sys.executable).resolve().parent / "bin")
     _prepend_path(Path(sys.executable).resolve().parent / "_internal" / "bin")
+    _configure_windows_cuda_paths(root)
 
     # Avoid libraries trying to write config/cache files into the app bundle.
     cache_dir = os.environ.get("DEEPFACECAM_CACHE_DIR")

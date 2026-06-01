@@ -9,10 +9,10 @@ import subprocess
 import urllib
 from pathlib import Path
 from typing import List, Any
-from tqdm import tqdm
 
 import modules.globals
 from modules.paths import TEMP_DIR
+from modules.progress import tqdm
 
 TEMP_FILE = "temp.mp4"
 TEMP_DIRECTORY = "temp"

@@ -258,6 +258,22 @@ fn find_bundled_backend(app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
+fn read_backend_variant(sidecar: &PathBuf) -> Option<String> {
+    let candidates = [
+        sidecar.parent()?.join("variant.txt"),
+        sidecar.parent()?.parent()?.join("variant.txt"),
+    ];
+    for candidate in candidates {
+        if let Ok(value) = fs::read_to_string(candidate) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    None
+}
+
 fn find_python(repo_root: &PathBuf) -> String {
     if let Ok(p) = env::var("DEEPFACECAM_PYTHON") {
         return p;
@@ -390,6 +406,9 @@ fn spawn_backend(app: &AppHandle) -> Option<BackendProcess> {
             .stderr(Stdio::inherit());
         if let Some(parent) = sidecar.parent() {
             command.current_dir(parent);
+        }
+        if let Some(variant) = read_backend_variant(&sidecar) {
+            command.env("DEEPFACECAM_PACKAGE_VARIANT", variant);
         }
         apply_runtime_env(&mut command, runtime.as_ref(), false);
         return command

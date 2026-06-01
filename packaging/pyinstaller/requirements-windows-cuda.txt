@@ -11,7 +11,7 @@ insightface==0.7.3
 psutil==5.9.8
 pillow==12.1.1
 tqdm>=4.65.0
-onnxruntime-gpu==1.23.2
+onnxruntime-gpu[cuda,cudnn]==1.23.2
 protobuf==4.25.1
 pygrabber; sys_platform == 'win32'
 aiohttp>=3.9

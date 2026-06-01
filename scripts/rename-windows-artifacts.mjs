@@ -10,6 +10,12 @@ const projectRoot = resolve(__dirname, "..");
 const variant = process.argv[2] || process.env.DEEPFACECAM_WINDOWS_VARIANT || "cpu";
 const arch = process.arch === "x64" ? "x64" : process.arch;
 const bundleRoot = resolve(projectRoot, "src-tauri", "target", "release", "bundle");
+const bundles = new Set(
+  (process.env.DEEPFACECAM_WINDOWS_BUNDLES || "nsis,msi")
+    .split(",")
+    .map((bundle) => bundle.trim())
+    .filter(Boolean),
+);
 
 const variants = new Set(["cpu", "directml", "cuda"]);
 if (!variants.has(variant)) {
@@ -40,12 +46,20 @@ async function moveArtifact(source, target) {
   console.log(`[rename:windows] ${source} -> ${target}`);
 }
 
-await moveArtifact(
-  resolve(bundleRoot, "nsis", `DeepFaceCam_${pkg.version}_x64-setup.exe`),
-  resolve(bundleRoot, "nsis", `DeepFaceCam_${pkg.version}_windows_${variant}_${arch}_setup.exe`),
-);
+if (bundles.has("nsis")) {
+  await moveArtifact(
+    resolve(bundleRoot, "nsis", `DeepFaceCam_${pkg.version}_x64-setup.exe`),
+    resolve(bundleRoot, "nsis", `DeepFaceCam_${pkg.version}_windows_${variant}_${arch}_setup.exe`),
+  );
+} else {
+  console.log("[rename:windows] skipping NSIS artifact rename");
+}
 
-await moveArtifact(
-  resolve(bundleRoot, "msi", `DeepFaceCam_${pkg.version}_x64_en-US.msi`),
-  resolve(bundleRoot, "msi", `DeepFaceCam_${pkg.version}_windows_${variant}_${arch}_en-US.msi`),
-);
+if (bundles.has("msi")) {
+  await moveArtifact(
+    resolve(bundleRoot, "msi", `DeepFaceCam_${pkg.version}_x64_en-US.msi`),
+    resolve(bundleRoot, "msi", `DeepFaceCam_${pkg.version}_windows_${variant}_${arch}_en-US.msi`),
+  );
+} else {
+  console.log("[rename:windows] skipping MSI artifact rename");
+}

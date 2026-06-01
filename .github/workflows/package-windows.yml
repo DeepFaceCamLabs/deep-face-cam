@@ -23,12 +23,15 @@ jobs:
           - name: CPU
             variant: cpu
             artifact_suffix: cpu-x64
+            bundles: nsis,msi
           - name: DirectML
             variant: directml
             artifact_suffix: directml-x64
+            bundles: nsis,msi
           - name: NVIDIA CUDA
             variant: cuda
             artifact_suffix: nvidia-cuda-x64
+            bundles: msi
     steps:
       - uses: actions/checkout@v6
 
@@ -68,14 +71,21 @@ jobs:
         run: npm run packaging:python:windows:${{ matrix.variant }}
 
       - name: Build unsigned Windows installer
+        shell: pwsh
         env:
           CI: "true"
           DEEPFACECAM_WINDOWS_VARIANT: ${{ matrix.variant }}
-        run: npm run tauri:build:windows
+        run: |
+          if ("${{ matrix.bundles }}" -eq "msi") {
+            npm run tauri:build:windows:msi
+          } else {
+            npm run tauri:build:windows
+          }
 
       - name: Rename installer artifacts
         env:
           DEEPFACECAM_WINDOWS_VARIANT: ${{ matrix.variant }}
+          DEEPFACECAM_WINDOWS_BUNDLES: ${{ matrix.bundles }}
         run: npm run release:rename-windows
 
       - name: Generate checksums

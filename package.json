@@ -31,7 +31,8 @@
     "tauri:build:macos": "npm run sidecar:macos && npm run prepare:backend && tauri build --bundles app && npm run dmg:macos",
     "tauri:build:macos:signed": "npm run sidecar:macos && npm run prepare:backend && tauri build --bundles app && npm run sign:macos && MACOS_SIGN_DMG=1 npm run dmg:macos",
     "tauri:build:macos:notarized": "MACOS_NESTED_TIMESTAMP=1 npm run tauri:build:macos:signed && npm run notarize:macos",
-    "tauri:build:windows": "npm run sidecar:windows && npm run prepare:backend && tauri build --bundles nsis,msi"
+    "tauri:build:windows": "npm run sidecar:windows && npm run prepare:backend && tauri build --bundles nsis,msi",
+    "tauri:build:windows:msi": "npm run sidecar:windows && npm run prepare:backend && tauri build --bundles msi"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.2",

@@ -10,6 +10,7 @@ import numpy as np
 
 import modules
 import modules.globals
+from modules import subprocess_utils
 from modules.face_analyser import get_one_face
 from modules.progress import tqdm
 
@@ -302,10 +303,10 @@ def _run_pipe_pipeline(
     reader = None
     writer = None
     try:
-        reader = subprocess.Popen(
+        reader = subprocess_utils.popen(
             reader_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
-        writer = subprocess.Popen(
+        writer = subprocess_utils.popen(
             writer_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE,
         )
     except Exception as e:

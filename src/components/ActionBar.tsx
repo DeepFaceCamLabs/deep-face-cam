@@ -25,6 +25,7 @@ export function ActionBar() {
   const setModal = useUi((s) => s.setModal);
   const setStageMode = useUi((s) => s.setStageMode);
   const stageMode = useUi((s) => s.stageMode);
+  const progress = useUi((s) => s.processingProgress);
 
   if (!state) return null;
 
@@ -35,6 +36,10 @@ export function ActionBar() {
   const stopActive =
     processing || liveRunning || stageMode === "preview" || stageMode === "live";
   const canStart = hasMedia && !processing;
+  const percent =
+    processing && progress?.ratio != null
+      ? Math.max(0, Math.min(100, Math.round(progress.ratio * 100)))
+      : null;
 
   const onStart = async () => {
     if (!hasMedia) {
@@ -107,9 +112,26 @@ export function ActionBar() {
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/5 bg-bg-soft/40 px-4 py-3">
-      <div className="min-w-0 text-xs text-zinc-500">
+      <div className="min-w-0 flex-1 text-xs text-zinc-500">
         {processing ? (
-          <span className="text-accent">{t("action.generating")}</span>
+          <div className="max-w-[360px]">
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <span className="truncate text-accent">
+                {percent == null ? t("action.generating") : t("stage.progress")}
+              </span>
+              {percent == null ? null : (
+                <span className="font-mono text-zinc-400">{percent}%</span>
+              )}
+            </div>
+            {percent == null ? null : (
+              <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-accent transition-[width]"
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            )}
+          </div>
         ) : hasOutput ? (
           <span className="block max-w-[280px] truncate" title={state.output_path ?? ""}>
             {basename(state.output_path)}

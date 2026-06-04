@@ -82,6 +82,7 @@
   "stage.previewFailed": "Preview failed. Check the media, models, or backend log.",
   "stage.close": "Close",
   "stage.generating": "Generating",
+  "stage.progress": "Processing video",
   "stage.ready": "Ready",
   "stage.live": "Live",
   "stage.liveHint": "Adjust options on the left while the preview is running.",

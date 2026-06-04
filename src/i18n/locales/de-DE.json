@@ -74,6 +74,7 @@
   "stage.rendering": "Rendern...",
   "stage.close": "Schließen",
   "stage.generating": "Generieren",
+  "stage.progress": "Video wird verarbeitet",
   "stage.ready": "Bereit",
   "stage.live": "Live",
   "stage.liveHint": "Optionen links können während der Vorschau angepasst werden.",

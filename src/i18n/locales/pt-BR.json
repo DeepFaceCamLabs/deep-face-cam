@@ -74,6 +74,7 @@
   "stage.rendering": "Renderizando...",
   "stage.close": "Fechar",
   "stage.generating": "Gerando",
+  "stage.progress": "Processando vídeo",
   "stage.ready": "Pronto",
   "stage.live": "Ao vivo",
   "stage.liveHint": "Ajuste as opções à esquerda enquanto a prévia estiver rodando.",

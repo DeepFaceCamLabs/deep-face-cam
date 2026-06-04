@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AppState, MapEntry } from "@/rpc/types";
+import type { AppState, MapEntry, ProcessingProgress } from "@/rpc/types";
 
 interface UiStore {
   state: AppState | null;
@@ -11,6 +11,8 @@ interface UiStore {
 
   statusLog: string[];
   pushStatus: (text: string) => void;
+  processingProgress: ProcessingProgress | null;
+  setProcessingProgress: (p: ProcessingProgress | null) => void;
 
   mapping: MapEntry[];
   setMapping: (m: MapEntry[]) => void;
@@ -44,6 +46,8 @@ export const useUi = create<UiStore>((set) => ({
   statusLog: [],
   pushStatus: (text) =>
     set((curr) => ({ statusLog: [...curr.statusLog.slice(-49), text] })),
+  processingProgress: null,
+  setProcessingProgress: (p) => set({ processingProgress: p }),
 
   mapping: [],
   setMapping: (m) => set({ mapping: m }),

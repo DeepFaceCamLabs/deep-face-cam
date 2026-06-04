@@ -10,9 +10,14 @@ interface Props {
 export function IdleStage({ workflowMode }: Props) {
   const { t } = useI18n();
   const state = useUi((s) => s.state);
+  const progress = useUi((s) => s.processingProgress);
   const hasMedia = Boolean(state?.source_path && state?.target_path);
   const liveReady = workflowMode === "live" && Boolean(state?.source_path);
   const processing = Boolean(state?.processing);
+  const percent =
+    processing && progress?.ratio != null
+      ? Math.max(0, Math.min(100, Math.round(progress.ratio * 100)))
+      : null;
   return (
     <div className="flex h-full min-h-[240px] items-center justify-center p-8">
       <div className="flex max-w-sm flex-col items-center gap-3 text-center">
@@ -34,6 +39,20 @@ export function IdleStage({ workflowMode }: Props) {
             ? t("stage.noCameraFeed")
             : t("stage.noMedia")}
         </div>
+        {processing && percent != null ? (
+          <div className="w-56">
+            <div className="mb-1 flex justify-between text-[11px] text-zinc-500">
+              <span>{t("stage.progress")}</span>
+              <span className="font-mono">{percent}%</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-accent transition-[width]"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

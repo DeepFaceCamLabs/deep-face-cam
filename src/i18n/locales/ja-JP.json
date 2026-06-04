@@ -74,6 +74,7 @@
   "stage.rendering": "レンダリング中...",
   "stage.close": "閉じる",
   "stage.generating": "生成中",
+  "stage.progress": "動画を処理中",
   "stage.ready": "準備完了",
   "stage.live": "ライブ",
   "stage.liveHint": "プレビュー中も左側でオプションを調整できます。",

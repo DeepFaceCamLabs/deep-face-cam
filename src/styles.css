@@ -37,6 +37,21 @@
     z-index: 0;
   }
 
+  select {
+    color-scheme: dark;
+  }
+
+  select option,
+  select optgroup {
+    background: #18181b;
+    color: #f4f4f5;
+  }
+
+  select option:checked {
+    background: #3f3f46;
+    color: #ffffff;
+  }
+
   /* Scrollbars */
   ::-webkit-scrollbar {
     width: 10px;

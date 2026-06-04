@@ -82,6 +82,7 @@
   "stage.previewFailed": "预览失败，请检查素材、模型或后端日志。",
   "stage.close": "关闭",
   "stage.generating": "正在生成",
+  "stage.progress": "正在处理视频",
   "stage.ready": "已就绪",
   "stage.live": "直播",
   "stage.liveHint": "预览运行时也可以在左侧调整选项。",

@@ -7,6 +7,7 @@ export function StatusBar() {
   const log = useUi((s) => s.statusLog);
   const connected = useUi((s) => s.connected);
   const processing = useUi((s) => s.state?.processing ?? false);
+  const progress = useUi((s) => s.processingProgress);
   const last =
     log[log.length - 1] ??
     (connected ? t("status.ready") : t("status.connecting"));
@@ -36,6 +37,9 @@ export function StatusBar() {
         )}
         <span className="truncate" title={last}>
           {last}
+          {processing && progress?.ratio != null
+            ? ` · ${Math.round(progress.ratio * 100)}%`
+            : ""}
         </span>
       </div>
     </div>

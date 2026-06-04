@@ -42,6 +42,16 @@ ADAPTIVE_QUALITY = True
 
 models_dir = MODELS_DIR
 
+
+def _has_cuda_execution_provider(providers: Optional[List[Any]] = None) -> bool:
+    providers = providers if providers is not None else modules.globals.execution_providers
+    for provider in providers or []:
+        if provider == "CUDAExecutionProvider":
+            return True
+        if isinstance(provider, tuple) and provider and provider[0] == "CUDAExecutionProvider":
+            return True
+    return False
+
 def pre_check() -> bool:
     try:
         os.makedirs(models_dir, exist_ok=True)
@@ -84,7 +94,11 @@ def get_face_swapper() -> Any:
             # older GPUs (e.g. GTX 16xx) where FP16 can produce NaN.
             fp32_path = os.path.join(models_dir, "inswapper_128.onnx")
             fp16_path = os.path.join(models_dir, "inswapper_128_fp16.onnx")
-            use_fp16 = _HAS_TORCH_CUDA and os.path.exists(fp16_path)
+            use_fp16 = (
+                _has_cuda_execution_provider()
+                and os.path.exists(fp16_path)
+                and os.environ.get("DEEPFACECAM_DISABLE_FP16") != "1"
+            )
             if use_fp16:
                 model_path = fp16_path
             elif os.path.exists(fp32_path):
@@ -126,11 +140,7 @@ def get_face_swapper() -> Any:
                     providers=providers_config,
                 )
                 # Set up CUDA graph session for faster inference
-                if _HAS_TORCH_CUDA and any(
-                    p == "CUDAExecutionProvider" or
-                    (isinstance(p, tuple) and p[0] == "CUDAExecutionProvider")
-                    for p in providers_config
-                ):
+                if _has_cuda_execution_provider(providers_config):
                     _init_cuda_graph_session(model_path, FACE_SWAPPER)
                 update_status("Face swapper model loaded successfully.", NAME)
             except Exception as e:

@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 
 import modules.globals as G
 import modules.metadata as META
+from modules import subprocess_utils
 from modules.paths import MODELS_DIR
 
 
@@ -26,15 +27,11 @@ def _version(package: str) -> Optional[str]:
 
 def _run_command(args: List[str], timeout: float = 3.0) -> Dict[str, Any]:
     try:
-        creationflags = 0
-        if sys.platform == "win32" and hasattr(subprocess, "CREATE_NO_WINDOW"):
-            creationflags = subprocess.CREATE_NO_WINDOW
-        result = subprocess.run(
+        result = subprocess_utils.run(
             args,
             capture_output=True,
             text=True,
             timeout=timeout,
-            creationflags=creationflags,
         )
         return {
             "ok": result.returncode == 0,
@@ -339,7 +336,7 @@ def _warnings(
     if "CUDAExecutionProvider" in available and "CUDAExecutionProvider" not in active:
         warnings.append("CUDA provider is available but not selected as the active backend.")
     if "CUDAExecutionProvider" in active and not torch_info.get("cuda_available"):
-        warnings.append("CUDA is active for ONNX Runtime, but torch CUDA is unavailable; FP16 swapper and some CUDA post-processing paths may be disabled.")
+        warnings.append("CUDA is active for ONNX Runtime. Torch CUDA is not bundled, so torch-only blend paths are disabled; ONNX FP16 and CUDA graph paths can still run.")
 
     if dll_info.get("checked") and "CUDAExecutionProvider" in active:
         missing = [item["name"] for item in dll_info.get("dlls", []) if not item.get("found")]

@@ -27,6 +27,7 @@ export default function App() {
   const setConnected = useUi((s) => s.setConnected);
   const setState = useUi((s) => s.setState);
   const pushStatus = useUi((s) => s.pushStatus);
+  const setProcessingProgress = useUi((s) => s.setProcessingProgress);
   const modal = useUi((s) => s.modal);
   const setModal = useUi((s) => s.setModal);
   const setStageMode = useUi((s) => s.setStageMode);
@@ -66,7 +67,18 @@ export default function App() {
         setState(e.state);
       } else if (e.event === "status") {
         pushStatus(e.text);
+      } else if (e.event === "processing_progress") {
+        setProcessingProgress({
+          phase: e.phase,
+          desc: e.desc,
+          unit: e.unit,
+          current: e.current,
+          total: e.total,
+          ratio: e.ratio,
+          elapsed: e.elapsed,
+        });
       } else if (e.event === "processing_done") {
+        setProcessingProgress(null);
         rpc
           .getState()
           .then((s: AppState) => {
@@ -92,7 +104,7 @@ export default function App() {
       offEv();
       window.clearInterval(t);
     };
-  }, [setConnected, setState, pushStatus, setStageMode]);
+  }, [setConnected, setState, pushStatus, setStageMode, setProcessingProgress]);
 
   const changeWorkflowMode = async (mode: WorkflowMode) => {
     if (mode === workflowMode) return;

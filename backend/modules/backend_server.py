@@ -71,6 +71,7 @@ from modules.paths import (
     ensure_runtime_dirs,
 )
 from modules.processors.frame.core import get_frame_processors_modules
+from modules import progress as progress_module
 from modules.runtime_diagnostics import collect_runtime_diagnostics
 from modules.utilities import has_image_extension, is_image, is_video, normalize_output_path
 from modules.video_capture import VideoCapturer
@@ -263,8 +264,10 @@ class _LiveSession:
                 raise RuntimeError(
                     "Camera did not open. Allow DeepFaceCam in System Settings > "
                     "Privacy & Security > Camera, then try again."
-                )
+            )
             raise RuntimeError("Failed to open camera")
+        self.actual_width = self.cap.actual_width
+        self.actual_height = self.cap.actual_height
         self.actual_fps = self.cap.actual_fps or 30.0
         self._stop = threading.Event()
         self._raw_q: queue.Queue = queue.Queue(maxsize=2)
@@ -538,6 +541,9 @@ class _LiveSession:
 
     def stop(self) -> None:
         self._stop.set()
+        for worker in (self._t_capture, self._t_process, self._t_encode):
+            if worker.is_alive():
+                worker.join(timeout=1.0)
         try:
             self.cap.release()
         except Exception:
@@ -564,6 +570,7 @@ class Server:
 
     def install_status_sink(self) -> None:
         backend_ui_shim.set_status_sink(self._on_status)
+        progress_module.set_progress_sink(self._on_progress)
 
     def _on_status(self, text: str) -> None:
         print(f"[STATUS] {text}", flush=True)
@@ -571,6 +578,14 @@ class Server:
             return
         asyncio.run_coroutine_threadsafe(
             self._broadcast({"event": "status", "text": text}),
+            self.loop,
+        )
+
+    def _on_progress(self, payload: Dict[str, Any]) -> None:
+        if self.loop is None:
+            return
+        asyncio.run_coroutine_threadsafe(
+            self._broadcast({"event": "processing_progress", **payload}),
             self.loop,
         )
 
@@ -992,10 +1007,16 @@ async def _start_live(camera_index: int = 0) -> Dict[str, Any]:
         return {"ok": False, "error": "Please select a source image first"}
     await _stop_live()
     try:
-        loop = asyncio.get_running_loop()
-        sess = await loop.run_in_executor(
-            SRV.executor, _LiveSession, int(camera_index)
-        )
+        if platform.system() == "Darwin":
+            # AVFoundation camera authorization must be requested from the
+            # main thread/run loop. Creating the capture object in the worker
+            # can fail before macOS shows the permission prompt.
+            sess = _LiveSession(int(camera_index))
+        else:
+            loop = asyncio.get_running_loop()
+            sess = await loop.run_in_executor(
+                SRV.executor, _LiveSession, int(camera_index)
+            )
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
     with SRV.live_lock:

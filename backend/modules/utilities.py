@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import List, Any
 
 import modules.globals
+from modules import subprocess_utils
 from modules.paths import TEMP_DIR
 from modules.progress import tqdm
 
@@ -29,7 +30,7 @@ def run_ffmpeg(args: List[str]) -> bool:
     ]
     commands.extend(args)
     try:
-        subprocess.check_output(commands, stderr=subprocess.STDOUT)
+        subprocess_utils.check_output(commands, stderr=subprocess.STDOUT)
         return True
     except subprocess.CalledProcessError as error:
         output = error.output.decode(errors="ignore").strip()
@@ -53,7 +54,7 @@ def detect_fps(target_path: str) -> float:
         "default=noprint_wrappers=1:nokey=1",
         target_path,
     ]
-    output = subprocess.check_output(command).decode().strip().split("/")
+    output = subprocess_utils.check_output(command).decode().strip().split("/")
     try:
         numerator, denominator = map(int, output)
         return numerator / denominator
@@ -205,7 +206,7 @@ def has_audio_stream(target_path: str) -> bool:
         target_path,
     ]
     try:
-        output = subprocess.check_output(command, stderr=subprocess.STDOUT).decode().strip()
+        output = subprocess_utils.check_output(command, stderr=subprocess.STDOUT).decode().strip()
         return bool(output)
     except Exception:
         return False
@@ -354,7 +355,7 @@ def get_video_dimensions(target_path: str) -> tuple:
         "-of", "csv=p=0:s=x",
         target_path,
     ]
-    output = subprocess.check_output(command).decode().strip()
+    output = subprocess_utils.check_output(command).decode().strip()
     width, height = map(int, output.split("x"))
     return width, height
 
@@ -370,7 +371,7 @@ def estimate_frame_count(target_path: str, fps: float = None) -> int:
         target_path,
     ]
     try:
-        output = subprocess.check_output(command).decode().strip()
+        output = subprocess_utils.check_output(command).decode().strip()
         duration = float(output)
         return int(duration * fps)
     except Exception:

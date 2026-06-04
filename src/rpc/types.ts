@@ -182,6 +182,16 @@ export interface RuntimeDiagnostics {
   warnings: string[];
 }
 
+export interface ProcessingProgress {
+  phase: "start" | "update" | "done";
+  desc?: string;
+  unit?: string | null;
+  current: number;
+  total: number | null;
+  ratio: number | null;
+  elapsed?: number;
+}
+
 export type ServerEvent =
   | { event: "hello"; state: AppState }
   | { event: "status"; text: string }
@@ -193,4 +203,5 @@ export type ServerEvent =
       total?: number;
       error?: string;
     }
+  | ({ event: "processing_progress" } & ProcessingProgress)
   | { event: "processing_done" };

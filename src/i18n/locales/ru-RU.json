@@ -74,6 +74,7 @@
   "stage.rendering": "Рендеринг...",
   "stage.close": "Закрыть",
   "stage.generating": "Генерация",
+  "stage.progress": "Обработка видео",
   "stage.ready": "Готово",
   "stage.live": "Камера",
   "stage.liveHint": "Параметры слева можно менять во время предпросмотра.",

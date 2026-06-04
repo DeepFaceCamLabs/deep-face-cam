@@ -11,7 +11,7 @@ const variant = process.argv[2] || process.env.DEEPFACECAM_WINDOWS_VARIANT || "c
 const arch = process.arch === "x64" ? "x64" : process.arch;
 const bundleRoot = resolve(projectRoot, "src-tauri", "target", "release", "bundle");
 const bundles = new Set(
-  (process.env.DEEPFACECAM_WINDOWS_BUNDLES || "nsis,msi")
+  (process.env.DEEPFACECAM_WINDOWS_BUNDLES || "msi")
     .split(",")
     .map((bundle) => bundle.trim())
     .filter(Boolean),

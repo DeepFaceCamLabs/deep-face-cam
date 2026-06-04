@@ -23,11 +23,11 @@ jobs:
           - name: CPU
             variant: cpu
             artifact_suffix: cpu-x64
-            bundles: nsis,msi
+            bundles: msi
           - name: DirectML
             variant: directml
             artifact_suffix: directml-x64
-            bundles: nsis,msi
+            bundles: msi
           - name: NVIDIA CUDA
             variant: cuda
             artifact_suffix: nvidia-cuda-x64
@@ -75,12 +75,7 @@ jobs:
         env:
           CI: "true"
           DEEPFACECAM_WINDOWS_VARIANT: ${{ matrix.variant }}
-        run: |
-          if ("${{ matrix.bundles }}" -eq "msi") {
-            npm run tauri:build:windows:msi
-          } else {
-            npm run tauri:build:windows
-          }
+        run: npm run tauri:build:windows
 
       - name: Rename installer artifacts
         env:
@@ -103,7 +98,6 @@ jobs:
           name: deepfacecam-windows-unsigned-${{ matrix.artifact_suffix }}
           path: |
             src-tauri/target/release/bundle/**/*.msi
-            src-tauri/target/release/bundle/**/*.exe
             src-tauri/target/release/bundle/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: ${{ fromJSON(inputs['retention-days']) }}

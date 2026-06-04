@@ -194,7 +194,7 @@ Each variant writes the bundled backend to:
 src-tauri/generated/windows/backend-sidecar/deepfacecam-backend
 ```
 
-Then build the Windows installers:
+Then build the Windows MSI installer:
 
 ```bash
 DEEPFACECAM_WINDOWS_VARIANT=cpu npm run tauri:build:windows
@@ -204,19 +204,19 @@ npm run release:rename-windows -- cpu
 The sidecar includes Python, backend dependencies, `ffmpeg.exe`, and
 `ffprobe.exe`, but not model binaries.
 
-Before checksums are generated, release builds rename the installers to include
-the runtime variant, for example:
+Before checksums are generated, release builds rename the MSI installers to
+include the runtime variant, for example:
 
 ```text
-DeepFaceCam_0.1.0_windows_cpu_x64_setup.exe
-DeepFaceCam_0.1.0_windows_directml_x64_setup.exe
-DeepFaceCam_0.1.0_windows_cuda_x64_setup.exe
+DeepFaceCam_0.1.0_windows_cpu_x64_en-US.msi
+DeepFaceCam_0.1.0_windows_directml_x64_en-US.msi
+DeepFaceCam_0.1.0_windows_cuda_x64_en-US.msi
 ```
 
 ## GitHub Windows Packaging
 
 Run the manual `Package Windows` workflow from GitHub Actions. It builds three
-unsigned x64 installer artifacts:
+unsigned x64 MSI installer artifacts:
 
 - CPU: maximum compatibility.
 - DirectML: broad Windows GPU support.

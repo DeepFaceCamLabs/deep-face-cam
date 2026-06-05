@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
+import importlib
 import json
 import os
 import platform
@@ -184,6 +185,52 @@ def _frame_processors_from_fp_ui() -> List[str]:
     return procs
 
 
+def _execution_provider_name(provider: Any) -> str:
+    if isinstance(provider, str):
+        return provider
+    if isinstance(provider, tuple) and provider:
+        return str(provider[0])
+    return str(provider)
+
+
+def _has_execution_provider(name: str) -> bool:
+    return any(
+        _execution_provider_name(provider) == name
+        for provider in G.execution_providers or []
+    )
+
+
+def _live_enhancer_supported() -> bool:
+    return (
+        _has_execution_provider("CUDAExecutionProvider")
+        or _has_execution_provider("DmlExecutionProvider")
+    )
+
+
+def _frame_processors_for_live() -> List[str]:
+    if _live_enhancer_supported():
+        return _frame_processors_from_fp_ui()
+    return ["face_swapper"]
+
+
+def _live_frame_processor_modules(frame_processors: List[str]) -> List[Any]:
+    return [
+        importlib.import_module(f"modules.processors.frame.{frame_processor}")
+        for frame_processor in frame_processors
+    ]
+
+
+def _normalize_face_selection_mode(prefer: Optional[str] = None) -> None:
+    if prefer == "map_faces" and G.map_faces:
+        G.many_faces = False
+    elif prefer == "many_faces" and G.many_faces:
+        G.map_faces = False
+        G.source_target_map = []
+        G.simple_map = {}
+    elif G.map_faces and G.many_faces:
+        G.many_faces = False
+
+
 def _enhancer_choice() -> str:
     if G.fp_ui.get("face_enhancer", False):
         return "GFPGAN"
@@ -209,6 +256,32 @@ def _set_enhancer_choice(value: str) -> None:
     G.frame_processors = _frame_processors_from_fp_ui()
 
 
+def _list_macos_cameras() -> List[Dict[str, Any]]:
+    try:
+        result = subprocess.run(
+            ["system_profiler", "SPCameraDataType", "-json"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        payload = json.loads(result.stdout or "{}")
+        devices = payload.get("SPCameraDataType")
+        if isinstance(devices, list) and devices:
+            cameras = []
+            for index, item in enumerate(devices):
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("_name") or f"Camera {index}")
+                cameras.append({"index": index, "name": name})
+            if cameras:
+                return cameras
+    except Exception as exc:
+        print(f"[backend_server] macOS camera enumeration failed: {exc}", flush=True)
+
+    return [{"index": 0, "name": "Camera 0"}]
+
+
 def _list_cameras() -> List[Dict[str, Any]]:
     if platform.system() == "Windows":
         try:
@@ -221,7 +294,7 @@ def _list_cameras() -> List[Dict[str, Any]]:
             or [{"index": 0, "name": "No cameras found", "disabled": True}]
 
     if platform.system() == "Darwin":
-        return [{"index": 0, "name": "Camera 0"}, {"index": 1, "name": "Camera 1"}]
+        return _list_macos_cameras()
 
     # Linux: probe 0-9
     found: List[Dict[str, Any]] = []
@@ -277,6 +350,7 @@ class _LiveSession:
         self._metrics_lock = threading.Lock()
         self._metrics: Dict[str, deque] = {}
         self._last_fps = 0.0
+        self._reported_processor_error = False
         self._listeners: List[threading.Event] = []
 
         self._t_capture = threading.Thread(target=self._run_capture,
@@ -302,7 +376,8 @@ class _LiveSession:
             self._push(self._raw_q, frame)
 
     def _run_process(self) -> None:
-        frame_processors = get_frame_processors_modules(G.frame_processors or ["face_swapper"])
+        frame_processor_names: List[str] = []
+        frame_processors: List[Any] = []
         source_image = None
         last_source_path = None
         prev_time = time.time()
@@ -325,110 +400,124 @@ class _LiveSession:
             if G.live_mirror:
                 temp_frame = gpu_flip(temp_frame, 1)
 
-            if not G.map_faces:
-                if G.source_path and G.source_path != last_source_path:
-                    last_source_path = G.source_path
-                    source_image = get_one_face(cv2.imread(G.source_path))
+            try:
+                next_processor_names = _frame_processors_for_live()
+                if next_processor_names != frame_processor_names:
+                    frame_processors = _live_frame_processor_modules(next_processor_names)
+                    frame_processor_names = next_processor_names
 
-                det_count += 1
-                if det_count % det_interval == 0:
-                    det_start = time.perf_counter()
-                    if G.many_faces:
-                        cached_target_face = None
-                        cached_many_faces = detect_many_faces_fast(temp_frame)
-                    else:
-                        cached_target_face = detect_one_face_fast(temp_frame)
-                        cached_many_faces = None
-                    self._record_metric(
-                        "detect_ms", (time.perf_counter() - det_start) * 1000
-                    )
+                if not G.map_faces:
+                    if G.source_path and G.source_path != last_source_path:
+                        last_source_path = G.source_path
+                        source_image = get_one_face(cv2.imread(G.source_path))
 
-                cached_faces = None
-                if cached_many_faces:
-                    cached_faces = cached_many_faces
-                elif cached_target_face is not None:
-                    cached_faces = [cached_target_face]
-
-                for fp in frame_processors:
-                    if fp.NAME == "DLC.FACE-ENHANCER":
-                        if G.fp_ui.get("face_enhancer", False):
-                            enh_start = time.perf_counter()
-                            temp_frame = fp.process_frame(None, temp_frame,
-                                                          detected_faces=cached_faces)
-                            self._record_metric(
-                                "enhance_ms", (time.perf_counter() - enh_start) * 1000
-                            )
-                    elif fp.NAME == "DLC.FACE-ENHANCER-GPEN256":
-                        if G.fp_ui.get("face_enhancer_gpen256", False):
-                            enh_start = time.perf_counter()
-                            temp_frame = fp.process_frame(None, temp_frame,
-                                                          detected_faces=cached_faces)
-                            self._record_metric(
-                                "enhance_ms", (time.perf_counter() - enh_start) * 1000
-                            )
-                    elif fp.NAME == "DLC.FACE-ENHANCER-GPEN512":
-                        if G.fp_ui.get("face_enhancer_gpen512", False):
-                            enh_start = time.perf_counter()
-                            temp_frame = fp.process_frame(None, temp_frame,
-                                                          detected_faces=cached_faces)
-                            self._record_metric(
-                                "enhance_ms", (time.perf_counter() - enh_start) * 1000
-                            )
-                    elif fp.NAME == "DLC.FACE-SWAPPER":
-                        swap_start = time.perf_counter()
-                        swapped_bboxes = []
-                        if G.many_faces and cached_many_faces:
-                            result = temp_frame.copy()
-                            for t_face in cached_many_faces:
-                                result = fp.swap_face(source_image, t_face, result)
-                                if hasattr(t_face, "bbox") and t_face.bbox is not None:
-                                    swapped_bboxes.append(t_face.bbox.astype(int))
-                            temp_frame = result
-                        elif cached_target_face is not None and source_image is not None:
-                            temp_frame = fp.swap_face(source_image,
-                                                      cached_target_face, temp_frame)
-                            if (hasattr(cached_target_face, "bbox")
-                                    and cached_target_face.bbox is not None):
-                                swapped_bboxes.append(cached_target_face.bbox.astype(int))
-                        temp_frame = fp.apply_post_processing(temp_frame, swapped_bboxes)
+                    det_count += 1
+                    if det_count % det_interval == 0:
+                        det_start = time.perf_counter()
+                        if G.many_faces:
+                            cached_target_face = None
+                            cached_many_faces = detect_many_faces_fast(temp_frame)
+                        else:
+                            cached_target_face = detect_one_face_fast(temp_frame)
+                            cached_many_faces = None
                         self._record_metric(
-                            "swap_ms", (time.perf_counter() - swap_start) * 1000
+                            "detect_ms", (time.perf_counter() - det_start) * 1000
                         )
-                    else:
-                        fp_start = time.perf_counter()
-                        temp_frame = fp.process_frame(source_image, temp_frame)
-                        self._record_metric(
-                            "processor_ms", (time.perf_counter() - fp_start) * 1000
-                        )
-            else:
-                G.target_path = None
-                for fp in frame_processors:
-                    if fp.NAME == "DLC.FACE-ENHANCER":
-                        if G.fp_ui.get("face_enhancer", False):
-                            enh_start = time.perf_counter()
-                            temp_frame = fp.process_frame_v2(temp_frame)
-                            self._record_metric(
-                                "enhance_ms", (time.perf_counter() - enh_start) * 1000
-                            )
-                    elif fp.NAME in ("DLC.FACE-ENHANCER-GPEN256", "DLC.FACE-ENHANCER-GPEN512"):
-                        fp_key = fp.NAME.split(".")[-1].lower().replace("-", "_")
-                        if G.fp_ui.get(fp_key, False):
-                            enh_start = time.perf_counter()
-                            temp_frame = fp.process_frame_v2(temp_frame)
-                            self._record_metric(
-                                "enhance_ms", (time.perf_counter() - enh_start) * 1000
-                            )
-                    else:
-                        swap_start = time.perf_counter()
-                        temp_frame = fp.process_frame_v2(temp_frame)
-                        if getattr(fp, "NAME", "") == "DLC.FACE-SWAPPER":
+
+                    cached_faces = None
+                    if cached_many_faces:
+                        cached_faces = cached_many_faces
+                    elif cached_target_face is not None:
+                        cached_faces = [cached_target_face]
+
+                    for fp in frame_processors:
+                        if fp.NAME == "DLC.FACE-ENHANCER":
+                            if G.fp_ui.get("face_enhancer", False):
+                                enh_start = time.perf_counter()
+                                temp_frame = fp.process_frame(None, temp_frame,
+                                                              detected_faces=cached_faces)
+                                self._record_metric(
+                                    "enhance_ms", (time.perf_counter() - enh_start) * 1000
+                                )
+                        elif fp.NAME == "DLC.FACE-ENHANCER-GPEN256":
+                            if G.fp_ui.get("face_enhancer_gpen256", False):
+                                enh_start = time.perf_counter()
+                                temp_frame = fp.process_frame(None, temp_frame,
+                                                              detected_faces=cached_faces)
+                                self._record_metric(
+                                    "enhance_ms", (time.perf_counter() - enh_start) * 1000
+                                )
+                        elif fp.NAME == "DLC.FACE-ENHANCER-GPEN512":
+                            if G.fp_ui.get("face_enhancer_gpen512", False):
+                                enh_start = time.perf_counter()
+                                temp_frame = fp.process_frame(None, temp_frame,
+                                                              detected_faces=cached_faces)
+                                self._record_metric(
+                                    "enhance_ms", (time.perf_counter() - enh_start) * 1000
+                                )
+                        elif fp.NAME == "DLC.FACE-SWAPPER":
+                            swap_start = time.perf_counter()
+                            swapped_bboxes = []
+                            if G.many_faces and cached_many_faces:
+                                result = temp_frame.copy()
+                                for t_face in cached_many_faces:
+                                    result = fp.swap_face(source_image, t_face, result)
+                                    if hasattr(t_face, "bbox") and t_face.bbox is not None:
+                                        swapped_bboxes.append(t_face.bbox.astype(int))
+                                temp_frame = result
+                            elif cached_target_face is not None and source_image is not None:
+                                temp_frame = fp.swap_face(source_image,
+                                                          cached_target_face, temp_frame)
+                                if (hasattr(cached_target_face, "bbox")
+                                        and cached_target_face.bbox is not None):
+                                    swapped_bboxes.append(cached_target_face.bbox.astype(int))
+                            temp_frame = fp.apply_post_processing(temp_frame, swapped_bboxes)
                             self._record_metric(
                                 "swap_ms", (time.perf_counter() - swap_start) * 1000
                             )
                         else:
+                            fp_start = time.perf_counter()
+                            temp_frame = fp.process_frame(source_image, temp_frame)
                             self._record_metric(
-                                "processor_ms", (time.perf_counter() - swap_start) * 1000
+                                "processor_ms", (time.perf_counter() - fp_start) * 1000
                             )
+                else:
+                    G.target_path = None
+                    for fp in frame_processors:
+                        if fp.NAME == "DLC.FACE-ENHANCER":
+                            if G.fp_ui.get("face_enhancer", False):
+                                enh_start = time.perf_counter()
+                                temp_frame = fp.process_frame_v2(temp_frame)
+                                self._record_metric(
+                                    "enhance_ms", (time.perf_counter() - enh_start) * 1000
+                                )
+                        elif fp.NAME in ("DLC.FACE-ENHANCER-GPEN256", "DLC.FACE-ENHANCER-GPEN512"):
+                            fp_key = fp.NAME.split(".")[-1].lower().replace("-", "_")
+                            if G.fp_ui.get(fp_key, False):
+                                enh_start = time.perf_counter()
+                                temp_frame = fp.process_frame_v2(temp_frame)
+                                self._record_metric(
+                                    "enhance_ms", (time.perf_counter() - enh_start) * 1000
+                                )
+                        else:
+                            swap_start = time.perf_counter()
+                            temp_frame = fp.process_frame_v2(temp_frame)
+                            if getattr(fp, "NAME", "") == "DLC.FACE-SWAPPER":
+                                self._record_metric(
+                                    "swap_ms", (time.perf_counter() - swap_start) * 1000
+                                )
+                            else:
+                                self._record_metric(
+                                    "processor_ms", (time.perf_counter() - swap_start) * 1000
+                                )
+            except Exception as exc:
+                if not self._reported_processor_error:
+                    self._reported_processor_error = True
+                    traceback.print_exc()
+                    backend_ui_shim.update_status(
+                        f"Live processor failed, showing camera feed: {exc}"
+                    )
+                temp_frame = frame
 
             current_time = time.time()
             frame_count += 1
@@ -653,6 +742,7 @@ def _state_dict() -> Dict[str, Any]:
         "interpolation_weight": G.interpolation_weight,
         "fp_ui": G.fp_ui,
         "enhancer": _enhancer_choice(),
+        "live_enhancer_supported": _live_enhancer_supported(),
         "execution_providers": engine.encode_execution_providers(G.execution_providers),
         "available_providers": SRV.providers,
         "execution_threads": G.execution_threads,
@@ -743,9 +833,12 @@ _STR_FIELDS = {"video_encoder"}
 
 @rpc("set_state")
 async def _set_state(patch: Dict[str, Any]) -> Dict[str, Any]:
+    prefer_face_mode: Optional[str] = None
     for key, value in patch.items():
         if key in _BOOL_FIELDS:
             setattr(G, key, bool(value))
+            if key in {"many_faces", "map_faces"} and bool(value):
+                prefer_face_mode = key
         elif key in _FLOAT_FIELDS:
             setattr(G, key, float(value))
         elif key in _INT_FIELDS:
@@ -758,6 +851,8 @@ async def _set_state(patch: Dict[str, Any]) -> Dict[str, Any]:
             G.execution_providers = engine.decode_execution_providers(list(value))
         elif key == "fp_ui":
             G.fp_ui.update(value)
+
+    _normalize_face_selection_mode(prefer_face_mode)
 
     # Mouth mask derived flag
     if "mouth_mask_size" in patch:
@@ -1367,6 +1462,7 @@ def _pre_check_engine() -> None:
 async def _main_async(host: str, port: int) -> None:
     ensure_runtime_dirs()
     load_switch_states()
+    _normalize_face_selection_mode()
     if not G.frame_processors:
         G.frame_processors = _frame_processors_from_fp_ui()
     if G.video_encoder is None:

@@ -6,6 +6,7 @@ import { Switch } from "./Switch";
 import { Tooltip } from "./Tooltip";
 import { cx } from "@/lib/cx";
 import { useI18n } from "@/i18n";
+import type { WorkflowMode } from "./WorkflowPanel";
 
 type BoolKeys =
   | "keep_fps"
@@ -96,22 +97,45 @@ const OPTION_GROUPS: Array<{ titleKey: string; items: OptionItem[] }> = [
 
 const ENHANCER_CHOICES = ["None", "GFPGAN", "GPEN-512", "GPEN-256"] as const;
 
-export function OptionsCard() {
+interface Props {
+  workflowMode: WorkflowMode;
+}
+
+export function OptionsCard({ workflowMode }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const state = useUi((s) => s.state);
+  const setState = useUi((s) => s.setState);
   const patch = useUi((s) => s.patchState);
+  const pushStatus = useUi((s) => s.pushStatus);
 
   if (!state) return null;
 
+  const liveEnhancerSupported = Boolean(state.live_enhancer_supported);
+  const blockLiveEnhancer = workflowMode === "live" && !liveEnhancerSupported;
+
   const setBool = async (key: BoolKeys, value: boolean) => {
-    patch({ [key]: value } as any);
-    await rpc.setState({ [key]: value } as any);
+    const next: Partial<typeof state> = { [key]: value } as Partial<typeof state>;
+    if (key === "map_faces" && value) {
+      next.many_faces = false;
+      pushStatus(t("options.map_faces.status"));
+    }
+    if (key === "many_faces" && value) {
+      next.map_faces = false;
+    }
+    patch(next);
+    const updated = await rpc.setState(next);
+    setState(updated);
   };
 
   const setEnhancer = async (v: (typeof ENHANCER_CHOICES)[number]) => {
+    if (blockLiveEnhancer && v !== "None") {
+      pushStatus(t("options.faceEnhancer.liveDisabled"));
+      return;
+    }
     patch({ enhancer: v });
-    await rpc.setState({ enhancer: v });
+    const updated = await rpc.setState({ enhancer: v });
+    setState(updated);
   };
 
   return (
@@ -180,9 +204,12 @@ export function OptionsCard() {
                 <button
                   key={v}
                   onClick={() => setEnhancer(v)}
+                  disabled={blockLiveEnhancer && v !== "None"}
                   className={
                     "rounded-lg border px-2 py-1.5 text-[12px] font-medium transition " +
-                    (state.enhancer === v
+                    (blockLiveEnhancer && v !== "None"
+                      ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-zinc-600"
+                      : state.enhancer === v
                       ? "border-accent/40 bg-accent/10 text-accent"
                       : "border-white/5 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.06]")
                   }
@@ -191,6 +218,15 @@ export function OptionsCard() {
                 </button>
               ))}
             </div>
+            {workflowMode === "live" ? (
+              <div className="text-xs text-zinc-500">
+                {t(
+                  liveEnhancerSupported
+                    ? "options.faceEnhancer.liveEnabled"
+                    : "options.faceEnhancer.liveDisabled"
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

@@ -9,6 +9,7 @@ import { ModelSetupModal } from "@/components/ModelSetupModal";
 import { WorkflowPanel, type WorkflowMode } from "@/components/WorkflowPanel";
 import { rpc } from "@/rpc/client";
 import { useUi } from "@/lib/store";
+import { useI18n } from "@/i18n";
 import type { AppState, ModelStatus } from "@/rpc/types";
 
 async function configurePackagedBackendEndpoint() {
@@ -24,6 +25,7 @@ async function configurePackagedBackendEndpoint() {
 }
 
 export default function App() {
+  const { t } = useI18n();
   const setConnected = useUi((s) => s.setConnected);
   const setState = useUi((s) => s.setState);
   const pushStatus = useUi((s) => s.pushStatus);
@@ -111,6 +113,16 @@ export default function App() {
     if (liveRunning) {
       await rpc.stopLive().catch(() => undefined);
     }
+    const currentState = useUi.getState().state;
+    if (
+      mode === "live" &&
+      currentState?.enhancer !== "None" &&
+      !currentState?.live_enhancer_supported
+    ) {
+      const next = await rpc.setState({ enhancer: "None" }).catch(() => null);
+      if (next) setState(next);
+      pushStatus(t("options.faceEnhancer.liveDisabled"));
+    }
     setWorkflowMode(mode);
     setStageMode("idle");
   };
@@ -131,7 +143,7 @@ export default function App() {
           <WorkflowPanel mode={workflowMode} onModeChange={changeWorkflowMode} />
 
           <section className="grid gap-3 md:grid-cols-2">
-            <OptionsCard />
+            <OptionsCard workflowMode={workflowMode} />
             <RefinementCard />
           </section>
 

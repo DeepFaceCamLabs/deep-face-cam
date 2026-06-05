@@ -37,6 +37,7 @@ export interface AppState {
     face_enhancer_gpen512: boolean;
   };
   enhancer: "None" | "GFPGAN" | "GPEN-512" | "GPEN-256";
+  live_enhancer_supported: boolean;
 
   execution_providers: string[];
   available_providers: string[];

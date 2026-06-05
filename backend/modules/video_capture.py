@@ -72,8 +72,21 @@ class VideoCapturer:
                         self.cap.release()
                     except Exception:
                         continue
+            elif platform.system() == "Darwin":
+                capture_methods = [
+                    (self.device_index, getattr(cv2, "CAP_AVFOUNDATION", cv2.CAP_ANY)),
+                    (self.device_index, cv2.CAP_ANY),
+                ]
+                for dev_id, backend in capture_methods:
+                    try:
+                        self.cap = cv2.VideoCapture(dev_id, backend)
+                        if self.cap.isOpened():
+                            break
+                        self.cap.release()
+                    except Exception:
+                        continue
             else:
-                # Unix-like systems (Linux/Mac) capture method
+                # Linux capture method
                 self.cap = cv2.VideoCapture(self.device_index)
 
             if not self.cap or not self.cap.isOpened():

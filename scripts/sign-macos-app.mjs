@@ -197,16 +197,26 @@ function timestampArgs(enabled) {
   return enabled ? ["--timestamp"] : ["--timestamp=none"];
 }
 
-function signFile(file, identity, useTimestamp) {
-  run("codesign", [
+function shouldUseAppEntitlementsForNestedFile(file) {
+  return basename(file) === "deepfacecam-backend";
+}
+
+function signFile(file, identity, useTimestamp, entitlements) {
+  const args = [
     "--force",
     ...timestampArgs(useTimestamp),
     "--options",
     "runtime",
+  ];
+  if (entitlements) {
+    args.push("--entitlements", entitlements);
+  }
+  args.push(
     "--sign",
     identity,
-    file,
-  ]);
+    file
+  );
+  run("codesign", args);
 }
 
 function signApp(appDir, identity, entitlements, useTimestamp) {
@@ -260,7 +270,12 @@ function main() {
     if (index % 25 === 0 || process.env.MACOS_SIGN_VERBOSE === "1") {
       console.log(`[sign:macos] nested ${index + 1}/${machOFiles.length}: ${file}`);
     }
-    signFile(file, identity, nestedTimestamp);
+    signFile(
+      file,
+      identity,
+      nestedTimestamp,
+      shouldUseAppEntitlementsForNestedFile(file) ? entitlements : undefined
+    );
   }
 
   const frameworkVersionDirs = findFrameworkVersionDirs(appDir);

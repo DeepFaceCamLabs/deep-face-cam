@@ -95,7 +95,34 @@ const OPTION_GROUPS: Array<{ titleKey: string; items: OptionItem[] }> = [
   },
 ];
 
-const ENHANCER_CHOICES = ["None", "GFPGAN", "GPEN-512", "GPEN-256"] as const;
+const ENHANCER_CHOICES = [
+  {
+    value: "None",
+    labelKey: "enhancer.none.label",
+    metaKey: "enhancer.none.meta",
+    tipKey: "enhancer.none.tip",
+  },
+  {
+    value: "GPEN-256",
+    labelKey: "enhancer.fast.label",
+    metaKey: "enhancer.fast.meta",
+    tipKey: "enhancer.fast.tip",
+  },
+  {
+    value: "GPEN-512",
+    labelKey: "enhancer.hd.label",
+    metaKey: "enhancer.hd.meta",
+    tipKey: "enhancer.hd.tip",
+  },
+  {
+    value: "GFPGAN",
+    labelKey: "enhancer.strong.label",
+    metaKey: "enhancer.strong.meta",
+    tipKey: "enhancer.strong.tip",
+  },
+] as const;
+
+type EnhancerValue = (typeof ENHANCER_CHOICES)[number]["value"];
 
 interface Props {
   workflowMode: WorkflowMode;
@@ -128,7 +155,11 @@ export function OptionsCard({ workflowMode }: Props) {
     setState(updated);
   };
 
-  const setEnhancer = async (v: (typeof ENHANCER_CHOICES)[number]) => {
+  const selectedEnhancer =
+    ENHANCER_CHOICES.find((choice) => choice.value === state.enhancer) ??
+    ENHANCER_CHOICES[0];
+
+  const setEnhancer = async (v: EnhancerValue) => {
     if (blockLiveEnhancer && v !== "None") {
       pushStatus(t("options.faceEnhancer.liveDisabled"));
       return;
@@ -200,23 +231,41 @@ export function OptionsCard({ workflowMode }: Props) {
               {t("options.faceEnhancer")}
             </div>
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              {ENHANCER_CHOICES.map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setEnhancer(v)}
-                  disabled={blockLiveEnhancer && v !== "None"}
-                  className={
-                    "rounded-lg border px-2 py-1.5 text-[12px] font-medium transition " +
-                    (blockLiveEnhancer && v !== "None"
-                      ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-zinc-600"
-                      : state.enhancer === v
-                      ? "border-accent/40 bg-accent/10 text-accent"
-                      : "border-white/5 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.06]")
-                  }
-                >
-                  {v === "None" ? t("enhancer.none") : v}
-                </button>
-              ))}
+              {ENHANCER_CHOICES.map((choice) => {
+                const blocked = blockLiveEnhancer && choice.value !== "None";
+                const active = state.enhancer === choice.value;
+                return (
+                  <Tooltip key={choice.value} content={t(choice.tipKey)}>
+                    <button
+                      onClick={() => setEnhancer(choice.value)}
+                      disabled={blocked}
+                      className={
+                        "min-h-[58px] rounded-lg border px-2 py-1.5 text-center transition " +
+                        (blocked
+                          ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-zinc-600"
+                          : active
+                          ? "border-accent/40 bg-accent/10 text-accent"
+                          : "border-white/5 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.06]")
+                      }
+                    >
+                      <span className="block text-[12px] font-semibold leading-tight">
+                        {t(choice.labelKey)}
+                      </span>
+                      <span
+                        className={cx(
+                          "mt-1 block truncate text-[10px] leading-tight",
+                          active ? "text-accent/80" : "text-zinc-500"
+                        )}
+                      >
+                        {t(choice.metaKey)}
+                      </span>
+                    </button>
+                  </Tooltip>
+                );
+              })}
+            </div>
+            <div className="rounded-md border border-white/5 bg-white/[0.025] px-3 py-2 text-xs leading-relaxed text-zinc-500">
+              {t(selectedEnhancer.tipKey)}
             </div>
             {workflowMode === "live" ? (
               <div className="text-xs text-zinc-500">

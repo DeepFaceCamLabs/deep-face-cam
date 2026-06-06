@@ -20,6 +20,10 @@ interface UiStore {
   // Live preview key — bumping it forces an MJPEG <img> remount
   liveKey: number;
   bumpLive: () => void;
+  liveStarting: boolean;
+  setLiveStarting: (value: boolean) => void;
+  liveStopping: boolean;
+  setLiveStopping: (value: boolean) => void;
 
   // Preview frame key
   previewKey: number;
@@ -54,6 +58,10 @@ export const useUi = create<UiStore>((set) => ({
 
   liveKey: 0,
   bumpLive: () => set((c) => ({ liveKey: c.liveKey + 1 })),
+  liveStarting: false,
+  setLiveStarting: (value) => set({ liveStarting: value }),
+  liveStopping: false,
+  setLiveStopping: (value) => set({ liveStopping: value }),
 
   previewKey: 0,
   bumpPreview: () => set((c) => ({ previewKey: c.previewKey + 1 })),

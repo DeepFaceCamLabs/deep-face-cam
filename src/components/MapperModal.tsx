@@ -23,6 +23,8 @@ export function MapperModal({ open, onClose, mode }: Props) {
   const pushStatus = useUi((s) => s.pushStatus);
   const setState = useUi((s) => s.setState);
   const setStageMode = useUi((s) => s.setStageMode);
+  const setLiveStarting = useUi((s) => s.setLiveStarting);
+  const setLiveStopping = useUi((s) => s.setLiveStopping);
 
   const pickAndSet = async (row: number, kind: "source" | "target") => {
     const p = await pickFile({
@@ -69,31 +71,46 @@ export function MapperModal({ open, onClose, mode }: Props) {
       }
       pushStatus(t("mapping.submitted"));
       const camIdx = (window as any).__liveCameraIndex ?? 0;
-      const access = await ensureCameraAccess({
-        denied: t("camera.permissionDenied"),
-        unavailable: t("camera.permissionUnavailable"),
-        busy: t("camera.permissionBusy"),
-        failed: t("camera.permissionFailed"),
-      });
-      if (!access.ok) {
-        const error = access.error ?? t("camera.startFailed");
-        pushStatus(error);
-        await showCameraWarning(t("camera.permissionTitle"), error);
-        return;
-      }
-      const live = await rpc.startLive(camIdx);
-      if (!live.ok) {
-        const error = normalizeCameraStartError(
-          live.error,
-          t("camera.startFailed"),
-          t("camera.openFailedHelp")
-        );
-        pushStatus(error);
-        await showCameraWarning(t("camera.permissionTitle"), error);
-        return;
-      }
       onClose();
+      setLiveStarting(true);
+      setLiveStopping(false);
       setStageMode("live");
+      pushStatus(t("camera.startingLive"));
+      try {
+        const access = await ensureCameraAccess({
+          denied: t("camera.permissionDenied"),
+          unavailable: t("camera.permissionUnavailable"),
+          busy: t("camera.permissionBusy"),
+          failed: t("camera.permissionFailed"),
+        });
+        if (!access.ok) {
+          const error = access.error ?? t("camera.startFailed");
+          pushStatus(error);
+          setStageMode("idle");
+          await showCameraWarning(t("camera.permissionTitle"), error);
+          return;
+        }
+        const live = await rpc.startLive(camIdx);
+        if (!live.ok) {
+          const error = normalizeCameraStartError(
+            live.error,
+            t("camera.startFailed"),
+            t("camera.openFailedHelp")
+          );
+          pushStatus(error);
+          setStageMode("idle");
+          await showCameraWarning(t("camera.permissionTitle"), error);
+          return;
+        }
+        const next = await rpc.getState().catch(() => null);
+        if (next) {
+          setState(next);
+        } else {
+          useUi.getState().patchState({ live_running: true });
+        }
+      } finally {
+        setLiveStarting(false);
+      }
       return;
     }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Camera, Square, Video } from "lucide-react";
+import { Camera, Loader2, Square, Video } from "lucide-react";
 import { cx } from "@/lib/cx";
 import { useUi } from "@/lib/store";
 import { rpc } from "@/rpc/client";
@@ -22,6 +22,10 @@ export function CameraCard({ variant = "compact" }: Props) {
   const setStageMode = useUi((s) => s.setStageMode);
   const setMapping = useUi((s) => s.setMapping);
   const pushStatus = useUi((s) => s.pushStatus);
+  const liveStarting = useUi((s) => s.liveStarting);
+  const setLiveStarting = useUi((s) => s.setLiveStarting);
+  const liveStopping = useUi((s) => s.liveStopping);
+  const setLiveStopping = useUi((s) => s.setLiveStopping);
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<number>(0);
 
@@ -43,7 +47,8 @@ export function CameraCard({ variant = "compact" }: Props) {
   const cams = state?.cameras ?? [];
   const noCam = cams.length === 0 || cams[0]?.disabled;
   const liveRunning = Boolean(state?.live_running);
-  const disabled = noCam || state?.processing || liveRunning;
+  const liveBusy = liveStarting || liveStopping;
+  const disabled = noCam || state?.processing || liveRunning || liveBusy;
 
   const requestCameraAccess = async () => {
     const result = await ensureCameraAccess({
@@ -77,24 +82,50 @@ export function CameraCard({ variant = "compact" }: Props) {
       pushStatus(t("camera.selectSourceFirst"));
       return;
     }
-    if (!(await requestCameraAccess())) return;
-    const r = await rpc.startLive(camIdx);
-    if (!r.ok) {
-      const error = normalizeCameraStartError(
-        r.error,
-        t("camera.startFailed"),
-        t("camera.openFailedHelp")
-      );
-      pushStatus(error);
-      await showCameraWarning(t("camera.permissionTitle"), error);
-      return;
-    }
+    setLiveStarting(true);
+    setLiveStopping(false);
     setStageMode("live");
+    pushStatus(t("camera.startingLive"));
+    try {
+      if (!(await requestCameraAccess())) {
+        setStageMode("idle");
+        return;
+      }
+      const r = await rpc.startLive(camIdx);
+      if (!r.ok) {
+        const error = normalizeCameraStartError(
+          r.error,
+          t("camera.startFailed"),
+          t("camera.openFailedHelp")
+        );
+        pushStatus(error);
+        setStageMode("idle");
+        await showCameraWarning(t("camera.permissionTitle"), error);
+        return;
+      }
+      const next = await rpc.getState().catch(() => null);
+      if (next) {
+        useUi.getState().setState(next);
+      } else {
+        useUi.getState().patchState({ live_running: true });
+      }
+    } finally {
+      setLiveStarting(false);
+    }
   };
 
   const onStop = async () => {
-    await rpc.stopLive().catch(() => undefined);
-    setStageMode("idle");
+    if (liveStopping) return;
+    setLiveStopping(true);
+    setLiveStarting(false);
+    pushStatus(t("camera.stoppingLive"));
+    try {
+      await rpc.stopLive().catch(() => undefined);
+      useUi.getState().patchState({ live_running: false });
+      setStageMode("idle");
+    } finally {
+      setLiveStopping(false);
+    }
   };
 
   if (variant === "panel") {
@@ -132,40 +163,55 @@ export function CameraCard({ variant = "compact" }: Props) {
         </div>
 
         <div className="grid gap-2">
-          {liveRunning ? (
+          {liveStarting ? (
+            <button
+              disabled
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-accent/25 bg-accent/10 px-4 py-2 text-sm font-medium text-accent"
+            >
+              <Loader2 size={14} className="animate-spin" />
+              {t("camera.startingLive")}
+            </button>
+          ) : liveRunning || liveStopping ? (
             <button
               onClick={onStop}
+              disabled={liveStopping}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-danger/30 bg-danger/15 px-4 py-2 text-sm font-medium text-danger transition hover:bg-danger/25"
             >
-              <Square size={14} />
-              {t("camera.stopLive")}
+              {liveStopping ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Square size={14} />
+              )}
+              {liveStopping ? t("camera.stoppingLive") : t("camera.stopLive")}
             </button>
           ) : null}
-          <Tooltip
-            content={
-              noCam
-                ? t("camera.noCamera")
-                : !state?.source_path
-                ? t("camera.pickSourceFirst")
-                : t("camera.startTip")
-            }
-          >
-            <button
-              onClick={onLive}
-              disabled={disabled}
-              className={cx(
-                "inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition",
-                !disabled
-                  ? "bg-gradient-to-br from-[#6ee7b7] to-[#7dd3fc] text-zinc-950 hover:brightness-105 active:scale-[0.99]"
-                  : "cursor-not-allowed bg-white/5 text-zinc-500"
-              )}
+          {liveRunning || liveStarting || liveStopping ? null : (
+            <Tooltip
+              content={
+                noCam
+                  ? t("camera.noCamera")
+                  : !state?.source_path
+                  ? t("camera.pickSourceFirst")
+                  : t("camera.startTip")
+              }
             >
-              <Video size={15} />
-              {state?.source_path
-                ? t("camera.startPreview")
-                : t("camera.chooseFaceFirst")}
-            </button>
-          </Tooltip>
+              <button
+                onClick={onLive}
+                disabled={disabled}
+                className={cx(
+                  "inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition",
+                  !disabled
+                    ? "bg-gradient-to-br from-[#6ee7b7] to-[#7dd3fc] text-zinc-950 hover:brightness-105 active:scale-[0.99]"
+                    : "cursor-not-allowed bg-white/5 text-zinc-500"
+                )}
+              >
+                <Video size={15} />
+                {state?.source_path
+                  ? t("camera.startPreview")
+                  : t("camera.chooseFaceFirst")}
+              </button>
+            </Tooltip>
+          )}
         </div>
       </div>
     );
@@ -196,29 +242,31 @@ export function CameraCard({ variant = "compact" }: Props) {
           {refreshing ? "…" : t("camera.rescan")}
         </button>
       </Tooltip>
-      <Tooltip
-        content={
-          noCam
-            ? t("camera.noCamera")
-            : !state?.source_path
-            ? t("camera.pickSourceFirst")
-            : t("camera.startTip")
-        }
-      >
-        <button
-          onClick={onLive}
-          disabled={disabled}
-          className={cx(
-            "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition",
-            !disabled
-              ? "bg-gradient-to-br from-[#6ee7b7] to-[#7dd3fc] text-zinc-950 shadow-[0_8px_30px_-10px_rgba(110,231,183,0.55)] hover:brightness-105 active:scale-[0.99]"
-              : "cursor-not-allowed bg-white/5 text-zinc-500"
-          )}
+      {liveRunning || liveStarting || liveStopping ? null : (
+        <Tooltip
+          content={
+            noCam
+              ? t("camera.noCamera")
+              : !state?.source_path
+              ? t("camera.pickSourceFirst")
+              : t("camera.startTip")
+          }
         >
-          <Video size={14} />
-          {t("workflow.mode.live")}
-        </button>
-      </Tooltip>
+          <button
+            onClick={onLive}
+            disabled={disabled}
+            className={cx(
+              "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition",
+              !disabled
+                ? "bg-gradient-to-br from-[#6ee7b7] to-[#7dd3fc] text-zinc-950 shadow-[0_8px_30px_-10px_rgba(110,231,183,0.55)] hover:brightness-105 active:scale-[0.99]"
+                : "cursor-not-allowed bg-white/5 text-zinc-500"
+            )}
+          >
+            <Video size={14} />
+            {t("workflow.mode.live")}
+          </button>
+        </Tooltip>
+      )}
     </div>
   );
 }

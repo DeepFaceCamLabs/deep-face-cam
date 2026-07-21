@@ -9,7 +9,7 @@ cv2_enumerate_cameras==1.1.15
 onnx==1.18.0
 insightface==0.7.3
 psutil==5.9.8
-pillow==12.1.1
+pillow==12.3.0
 tqdm>=4.65.0
 onnxruntime==1.23.2
 protobuf==4.25.1

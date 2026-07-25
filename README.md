@@ -4,6 +4,8 @@ Deep Face Cam is a cross-platform desktop face-swap application built with
 React, TypeScript, TailwindCSS, Tauri 2, and a bundled Python backend derived
 from Deep-Live-Cam.
 
+Official website: <https://deepface.cam/>
+
 The desktop shell owns the native window and file dialogs. The React UI talks to
 the local Python sidecar over WebSocket JSON-RPC and HTTP preview routes.
 
